@@ -1,0 +1,61 @@
+#!/usr/bin/env bash
+
+# pulling from github main
+echo ""
+echo "Pulling from github-main"
+git pull
+echo "##### Pulling from github-main done."
+echo ""
+sleep 2
+
+# activating virtual environment
+activate_venv="$(find $HOME -name "activate")"
+echo "activating virtual environment at: $activate_venv"
+source "$activate_venv"
+echo "##### activated virtual environment ..."
+echo ""
+sleep 2
+
+# install django
+django_version=$(django-admin --version 2>&1)
+echo "##### django version exit statue: $django_version"
+if [[ $$? != 0 ]]; then
+	echo "installing django ..."
+	pip install django
+	echo "##### django installed ..."
+	sleep 2
+else
+	echo "##### django present ..."
+fi
+echo ""
+
+# install dependencies
+requirement_file_path="$(find $HOME -name "requirements.txt")"
+echo "requirement_file_path: $requirement_file_path"
+requirement_file_path="${requirement_file_path%/*}"
+cd "$requirement_file_path"
+pip install -r requirements.txt
+echo ""
+echo "##### installed dependencies ..."
+echo ""
+sleep 2
+
+# making and migrating migrations
+maka_and_migrate="$(find $HOME -name "manage.py")"
+echo "manage_py_file_path: $maka_and_migrate"
+maka_and_migrate="${maka_and_migrate%/*}"
+cd "$maka_and_migrate"
+python manage.py makemigrations
+sleep 2
+python manage.py migrate
+echo ""
+echo "##### database configurations updated ..."
+echo ""
+sleep 2
+
+# collect static files for production
+python manage.py collectstatic --noinput
+sleep 2
+echo "##### static files collected ..."
+echo ""
+# sleep 2
