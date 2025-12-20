@@ -4,7 +4,7 @@
 </p>
 
 <h1 align="center">
-  <code>studdiebudie_v2_backend</code> was auto-created using the <code>createRepo</code> command from
+  <code>estudiebuddie_v2_backend</code> was auto-created using the <code>createRepo</code> command from
   <a href="https://github.com/DafetiteOgaga/custom_commands">Custom Commands</a> CLI
 </h1>
 
