@@ -14,3 +14,10 @@ defaultpage/__pycache__
 venv_studdiebudie
 hooks/dont_push.py
 public
+contribute/utils/__pycache__
+auth_app/migrations/__pycache__
+auth_app/__pycache__
+user/migrations/__pycache__
+user/__pycache__
+take_quiz/migrations/__pycache__
+take_quiz/__pycache__
