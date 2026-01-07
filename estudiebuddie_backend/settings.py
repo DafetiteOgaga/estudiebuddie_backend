@@ -11,7 +11,8 @@ https://docs.djangoproject.com/en/5.0/ref/settings/
 """
 
 from pathlib import Path
-import os
+from datetime import timedelta
+import requests, os
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -42,17 +43,20 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    'user',		# <- added startapp here
+    'auth_app',		# <- added startapp here
     'shufflequestions',		# <- added startapp here
     'defaultpage',		# <- added startapp here
     'contribute',		# <- added startapp here
-    'taketest',		# <- added startapp here
+    'take_quiz',		# <- added startapp here
     'django_extensions',		# <- added django_extensions here
     'rest_framework',
+    'rest_framework_simplejwt',
     'corsheaders',  # For cross-origin requests
 ]
 
 MIDDLEWARE = [
-    'corsheaders.middleware.CorsMiddleware',
+    'corsheaders.middleware.CorsMiddleware', # Middleware for CORS
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
@@ -129,16 +133,50 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/5.0/howto/static-files/
 
 STATIC_URL = 'static/'
-STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')  # ✅ this is required for deployment
+# This is where collectstatic will put all files
+STATIC_ROOT = BASE_DIR / 'static' # this should be auto created (deployment only) in startproject command
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.0/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+AUTH_USER_MODEL = 'user.User'
 
 # # Allow requests from your React frontend
-# CORS_ALLOWED_ORIGINS = [
-#     "http://localhost:3000",  # React dev server
-#     "https://yourfrontenddomain.com",  # If deployed
-# ]
-CORS_ALLOW_ALL_ORIGINS = True # Allow all origins for development purposes
+CORS_ALLOWED_ORIGINS = [
+    "http://127.0.0.1:3000", # React dev server
+    "http://localhost:3000",  # React dev server
+    "https://dafetiteogaga.github.io",  # If deployed
+]
+# CORS_ALLOW_ALL_ORIGINS = True # Allow all origins for development purposes
+
+response = requests.get("https://dafetiteapiendpoint.pythonanywhere.com/get-imagekit-apis/")
+data = response.json()
+IMAGEKIT_PRIVATE_KEY = data.get("IMAGEKIT_PRIVATE_KEY")  # extract the private key
+IMAGEKIT_PUBLIC_KEY = data.get("IMAGEKIT_PUBLIC_KEY")  # extract the public key
+IMAGEKIT_URL_ENDPOINT = data.get("IMAGEKIT_URL_ENDPOINT")  # extract the endpoint
+
+REST_FRAMEWORK = {
+    "DEFAULT_AUTHENTICATION_CLASSES": ( # tells DRF how to handle authentication (i.e use JWTAuthentication)
+        "rest_framework_simplejwt.authentication.JWTAuthentication",
+    ),
+    'DEFAULT_PERMISSION_CLASSES': [ # default permission for all views (but overridden in individual views)
+        'rest_framework.permissions.IsAuthenticatedOrReadOnly',
+    ],
+    # 'EXCEPTION_HANDLER': 'custom_permissions.permissions.custom_exception_handler',
+}
+
+SIMPLE_JWT = {
+    "ACCESS_TOKEN_LIFETIME": timedelta(minutes=2),   # default 5, now 15 minutes
+    "REFRESH_TOKEN_LIFETIME": timedelta(days=14),     # default 1, now 14 days
+    "ROTATE_REFRESH_TOKENS": True,                   # issue a new refresh each time
+    "BLACKLIST_AFTER_ROTATION": True,                # block old refresh after rotation
+}
+
+# CACHES = {
+# 	'default': {
+# 		'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
+# 		'LOCATION': 'unique-snowflake',
+#         'TIMEOUT': None,  # Cache never expires unless explicitly set per view
+# 	}
+# }
