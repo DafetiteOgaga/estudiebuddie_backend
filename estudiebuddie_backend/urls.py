@@ -22,8 +22,10 @@ import os
 
 urlpatterns = [
     path('admin/', admin.site.urls),
+    path('user/', include('user.urls')),     # For user configuration
+    path('', include('auth_app.urls')),     # For auth_app configuration
     path('shufflequestions/', include('shufflequestions.urls')),     # For shufflequestions configuration
     path('', include('defaultpage.urls')),     # For defaultpage configuration
     path('contribute/', include('contribute.urls')),     # For contribute configuration
-    path('taketest/', include('taketest.urls')),     # For taketest configuration
+    path('take-quiz/', include('take_quiz.urls')),     # For take_quiz configuration
 ] + static('/public/', document_root=os.path.join(settings.BASE_DIR, 'public'))

@@ -1,7 +1,8 @@
 from django.shortcuts import render
-from rest_framework.decorators import api_view, parser_classes
+from rest_framework.decorators import api_view, permission_classes
 from rest_framework.parsers import MultiPartParser, FormParser
 from rest_framework.response import Response
+from rest_framework.permissions import IsAuthenticated
 from .utils.randomize import Randomize
 from root_utils.formDataToDict import parse_nested_formdata, print_formdata_content
 # from ../root_utils.formDataToDict import parse_nested_formdata
@@ -10,6 +11,7 @@ import json
 # Create your views here.
 
 @api_view(['POST'])
+@permission_classes([IsAuthenticated])
 def generate_exam_bundle(request):
 	if request.method == 'POST':
 		print_formdata_content(request.data)

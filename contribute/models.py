@@ -1,34 +1,88 @@
 from django.db import models
 from django.core.exceptions import ValidationError
+from .utils.hooks import validate_question_options, generate_unique_id
+from django.utils import timezone
 
 # Create your models here.
-def validate_four_options(value):
-    """Ensure the options list contains exactly 4 items."""
-    if not isinstance(value, list) or len(value) != 4:
-        raise ValidationError("Each question must have exactly 4 options.")
-
-class Subject(models.Model):
-    typeCategory = models.CharField(max_length=100)
-    classCategory = models.CharField(max_length=100)
-    name = models.CharField(max_length=100)  # formerly 'subject'
+class Category(models.Model):
+    type_category = models.CharField(max_length=100)
+    class_category = models.CharField(max_length=100)
+    subject_category = models.CharField(max_length=100)
+    class Meta:
+        unique_together = (
+            "type_category",
+            "class_category",
+            "subject_category",
+        )
 
     def __str__(self):
-        return f"{self.name} ({self.classCategory} - {self.typeCategory})"
+        return f"{self.type_category} ({self.class_category} - {self.subject_category})"
 
 
 class Question(models.Model):
-    subject = models.ForeignKey(Subject, on_delete=models.CASCADE, related_name='questions')
-    question = models.CharField(max_length=255)
-    image = models.URLField(blank=True, null=True)
-    options = models.JSONField(validators=[validate_four_options])
+    category = models.ForeignKey(
+        "Category",
+        on_delete=models.CASCADE,
+        related_name="rn_questions"
+    )
+    question = models.TextField(max_length=255)
+    image_url = models.CharField(max_length=255, null=True, blank=True)
+    fileId = models.CharField(max_length=225, null=True, blank=True)
+    options = models.JSONField(validators=[validate_question_options])
     correct_answer = models.CharField(max_length=255)
-    explanation = models.TextField(blank=True)
+    explanation = models.TextField()
+    approved = models.BooleanField(default=False)
 
     def clean(self):
         """Ensure the correct answer is one of the options."""
         super().clean()
-        if self.correct_answer not in self.options:
-            raise ValidationError("Correct answer must be one of the 4 options.")
+        validate_question_options(self.options, self.correct_answer)
 
+    def save(self, *args, **kwargs):
+        self.full_clean()  # ensures clean() runs
+        super().save(*args, **kwargs)
+        
     def __str__(self):
-        return self.question
+        return self.question[:60]
+    
+class QuizSession(models.Model):
+    session_id = models.CharField(
+		max_length=100,
+		default=generate_unique_id,
+		db_index=True,
+		# editable=False,
+		unique=True
+	)
+    is_submitted = models.BooleanField(default=False)
+    email = models.EmailField()
+    user = models.ForeignKey(
+        "user.User",
+        on_delete=models.CASCADE,
+        related_name="rn_quiz_sessions",
+        null=True, blank=True,
+    )
+    name = models.CharField(max_length=100, blank=True)
+    duration = models.PositiveIntegerField()
+    questions = models.ManyToManyField(Question, related_name="rn_quiz_sessions")
+    started_at = models.DateTimeField(default=timezone.now)
+    created_at = models.DateTimeField(auto_now_add=True)
+    
+    # def save(self, *args, **kwargs):
+    #     if not self.session_id:
+    #         self.session_id = generate_unique_id()
+    #     super().save(*args, **kwargs)
+
+class QuizAnswer(models.Model):
+    session = models.ForeignKey(
+        "QuizSession",
+        on_delete=models.CASCADE,
+        related_name="rn_session_answers"
+    )
+    question = models.ForeignKey(
+        "Question",
+        on_delete=models.CASCADE,
+        related_name="rn_question_answers"
+    )
+    selected_option = models.CharField(max_length=255)
+    is_correct = models.BooleanField()
+    answered_at = models.DateTimeField(auto_now_add=True)

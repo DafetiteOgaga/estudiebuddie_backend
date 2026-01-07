@@ -1,121 +1,108 @@
 from django.shortcuts import render
-from rest_framework.decorators import api_view
+from rest_framework.decorators import api_view, permission_classes
 from rest_framework.response import Response
 from rest_framework import status
+from rest_framework.permissions import IsAuthenticated
 from django.db import transaction
-from .models import Subject, Question
 import json
+from hooks.pretty_print import pretty_print_json
+from .models import Category, Question
+from .utils.hooks import validate_question_options
+from django.core.exceptions import ValidationError
 
 # Create your views here.
-@api_view(['GET', 'POST'])
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
 def contribute(request):
 	if request.method == 'POST':
 		# Handle POST request
-		payload = request.data
-		print('contribute:', payload)
-		return Response({
-			'success': 'Success',
-			'message': 'Contribution received successfully!',
-			'info': payload
-		})
-	return render(request, 'contribute/contribute.html')
-
-
-########################################################
-@api_view(['POST'])
-def create_or_update_subject(request):
-	if request.method == 'POST':
-		# print("Received request data:", request.data
-		print("Received request data:", json.dumps(request.data, indent=2))
-		return Response({
-			'success': 'Success',
-			'message': 'This endpoint is for creating or updating subjects and questions.',
-			'info': request.data
-		}, status=status.HTTP_200_OK)
 		try:
-			print("Trying to create or update subject...")
-			print("Received request body:", request.data)
+			payload = request.data
+		except:
+			return Response({"error": "Invalid payload"}, status=status.HTTP_400_BAD_REQUEST)
+		# print(json.dumps(payload, indent=4))
+		print('contribute:')
+		pretty_print_json(payload)
 
-			info = request.data.get("info", {})
-			questions = request.data.get("questions", [])
+		# Extract category info
+		type_category = payload.get("type_category").lower()
+		class_category = payload.get("class_category").lower()
+		subject_category = payload.get("subject_category").lower()
+		questions_data = payload.get("questions", [])
 
-			name = info.get("subject")
-			typeCategory = info.get("typeCategory")
-			classCategory = info.get("classCategory")
+		print('questions:')
+		pretty_print_json(questions_data)
+		print(f'type: {type_category}')
+		print(f'class: {class_category}')
+		print(f'subject: {subject_category}')
 
-			print("Formatting new questions...")
-			formatted_questions = []
-			for q in questions:
-				options = q.get("options", [])
-				correct_answer = q.get("correct_answer")
+		# return Response({"good": "all good"}, status=status.HTTP_200_OK)
 
-				if not isinstance(options, list) or len(options) != 4:
-					return Response({"error": "Each question must have exactly 4 options."}, status=status.HTTP_400_BAD_REQUEST)
+		if not (type_category and class_category and subject_category and questions_data):
+			print({"error": "Missing fields"})
+			return Response({"error": "Missing fields"}, status=status.HTTP_400_BAD_REQUEST)
 
-				if correct_answer not in options:
-					return Response({"error": f"Correct answer '{correct_answer}' must be one of the 4 options."}, status=status.HTTP_400_BAD_REQUEST)
+		# Get or create category
+		category, created = Category.objects.get_or_create(
+			type_category=type_category,
+			class_category=class_category,
+			subject_category=subject_category
+		)
+		print(f'category: {category.id}')
+		print(f'newly created: {created}')
 
-				formatted_questions.append({
-					"question": q.get("question"),
-					"options": options,
-					"correct_answer": correct_answer,
-					"image": q.get("image") or None,
-					"explanation": q.get("explanation") or "",
-				})
+		# Prepare bulk questions
+		bulk_questions = []
+		duplicate_questions = []
 
-			print("Checking if subject exists...")
-			existing_subject = Subject.objects.filter(name=name, typeCategory=typeCategory, classCategory=classCategory).first()
+		print('performing bulk op')
+		for idx, q in enumerate(questions_data):
+			print(f'for question: {idx+1}')
+			question_text = q.get("question")
+			options = q.get("options")
+			correct_answer = q.get("correct_answer")
+			explanation = q.get("explanation")
+			image_url = q.get("image_url", None)
+			fileId = q.get("fileId", None)
 
-			if existing_subject:
-				print("Found existing subject:", existing_subject.id)
-				existing_question_texts = set(existing_subject.questions.values_list("question", flat=True))
+			# Prevent duplicate questions across all categories
+			print('checking if its a duplicate...')
+			if Question.objects.filter(question=question_text).exists():
+				print(f'duplicate found: {question_text}')
+				duplicate_questions.append(question_text)
+				continue
 
-				non_duplicate_questions = [
-					fq for fq in formatted_questions if fq["question"] not in existing_question_texts
-				]
-				duplicate_count = len(formatted_questions) - len(non_duplicate_questions)
-				print(f"Found {duplicate_count} duplicate questions.")
-				print("Non-duplicate questions:", non_duplicate_questions)
+			# Validate options
+			try:
+				validate_question_options(options, correct_answer)
+			except ValidationError as e:
+				return Response({"error": str(e)}, status=status.HTTP_406_NOT_ACCEPTABLE)
 
-				if non_duplicate_questions:
-					print("Appending new questions to existing subject...")
-					with transaction.atomic():
-						for fq in non_duplicate_questions:
-							Question.objects.create(subject=existing_subject, **fq)
+			bulk_questions.append(
+				Question(
+					category=category,
+					question=question_text,
+					options=options,
+					correct_answer=correct_answer,
+					explanation=explanation,
+					image_url=image_url,
+					fileId=fileId
+				)
+			)
 
-					return Response({
-						"success": "success",
-						"message": "Questions appended to subject",
-						"subjectId": existing_subject.id
-					}, status=status.HTTP_200_OK)
-				else:
-					print("No new questions to append.")
-					return Response({
-						"success": "success",
-						"message": "No new questions to append to subject",
-						"subjectId": existing_subject.id
-					}, status=status.HTTP_200_OK)
-
-			else:
-				print("Creating new subject...")
-				with transaction.atomic():
-					new_subject = Subject.objects.create(
-						name=name,
-						typeCategory=typeCategory,
-						classCategory=classCategory
-					)
-					for fq in formatted_questions:
-						Question.objects.create(subject=new_subject, **fq)
-
-				print("Created new subject:", new_subject.id)
-				return Response({
-					"success": "success",
-					"message": "New subject created with questions",
-					"subjectId": new_subject.id
-				}, status=status.HTTP_201_CREATED)
-
+		# Use transaction to ensure atomic insert
+		try:
+			with transaction.atomic():
+				print('creating bulk questions...')
+				Question.objects.bulk_create(bulk_questions)
+				print('bulk questions created.')
 		except Exception as e:
-			print("Error creating or updating subject:", e)
-			return Response({
-				"error": "Failed to create or update subject and questions."
-			}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+			print({"error": str(e)})
+			return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+		print('success.')
+		response = {
+			"saved": f"{len(bulk_questions)} questions",
+			"skipped_duplicates": duplicate_questions
+		}
+		return Response(response, status=status.HTTP_201_CREATED)
