@@ -9,6 +9,7 @@ from hooks.pretty_print import pretty_print_json
 import random
 from django.db import transaction
 from django.db.models import Count, Q
+from django.utils import timezone
 
 sample_questions = [
 	{
@@ -311,13 +312,18 @@ def get_question_stats(question_ids):
 def send_time(request, session_id):
 	if request.method == 'GET':
 		# Handle GET request
+		new_session = request.GET.get("session")
+		print(f'new_session: {new_session}')
 		print('session_id:', session_id)
 		quiz_session = QuizSession.objects.filter(session_id=session_id).first()
 		if not quiz_session:
 			invalid_session = "Invalid Session."
 			print(invalid_session)
 			return Response({"error": invalid_session}, status=status.HTTP_400_BAD_REQUEST)
-	start_time = quiz_session.started_at
-	print(f'start_time: {start_time}')
+		if new_session == "true":
+			quiz_session.started_at = timezone.now()
+			quiz_session.save()
+		start_time = quiz_session.started_at
+		print(f'start_time: {start_time}')
 
-	return Response(start_time, status=status.HTTP_200_OK)
+		return Response(start_time, status=status.HTTP_200_OK)
