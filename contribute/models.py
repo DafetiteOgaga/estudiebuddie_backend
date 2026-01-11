@@ -41,10 +41,10 @@ class Question(models.Model):
     def save(self, *args, **kwargs):
         self.full_clean()  # ensures clean() runs
         super().save(*args, **kwargs)
-        
+
     def __str__(self):
         return self.question[:60]
-    
+
 class QuizSession(models.Model):
     session_id = models.CharField(
 		max_length=100,
@@ -82,6 +82,12 @@ class QuizAnswer(models.Model):
         "Question",
         on_delete=models.CASCADE,
         related_name="rn_question_answers"
+    )
+    response_duration = models.DecimalField(
+        max_digits=6,
+        decimal_places=4,
+        null=True,
+        blank=True
     )
     selected_option = models.CharField(max_length=255)
     is_correct = models.BooleanField()
