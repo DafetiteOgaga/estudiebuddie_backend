@@ -210,9 +210,16 @@ def grade_quiz(request):
 	session.is_submitted = True
 	session.save()
 
+	now = timezone.now()
+	quiz_duration = round((now - session.started_at).total_seconds(), 4)
+	print(f'started_at: {session.started_at}\nnow: {now}\nquiz_duration: {quiz_duration}')
+
 	# Convert list → dict for O(1) lookup
 	submitted_map = {
-		item["questionId"]: item["answer"]
+		item["questionId"]: {
+			"answer": item.get("answer"),
+			"response_duration": item.get("response_duration"),
+		}
 		for item in answers
 	}
 
@@ -231,7 +238,9 @@ def grade_quiz(request):
 	quiz_answers = []
 
 	for q in questions:
-		selected_answer = submitted_map[q.id]
+		submitted = submitted_map[q.id]
+		selected_answer = submitted["answer"]
+		response_duration = submitted["response_duration"]
 		is_correct = selected_answer == q.correct_answer
 		print(f'{q.correct_answer} = {selected_answer} ? {is_correct}')
 		# print(f'is_correct: {is_correct}')
@@ -244,7 +253,8 @@ def grade_quiz(request):
 				session=session,
 				question=q,
 				selected_option=selected_answer,
-				is_correct=is_correct
+				is_correct=is_correct,
+				response_duration=response_duration,
 			)
 		)
 
@@ -252,16 +262,18 @@ def grade_quiz(request):
 			"question_id": q.id,
 			"correct": is_correct,
 			"correct_answer": q.correct_answer,
-			"explanation": q.explanation
+			"explanation": q.explanation,
+			"response_duration": response_duration,
 		})
 
 	with transaction.atomic():
 		QuizAnswer.objects.bulk_create(quiz_answers)
 
 	response = {
-		"score": score,
-		"total": len(questions),
-		"results": results
+		"quiz_score": score,
+		"quiz_attempted": len(questions),
+		"quiz_result": results,
+		"quiz_duration": quiz_duration,
 	}
 	print(f'response:')
 	pretty_print_json(response)
