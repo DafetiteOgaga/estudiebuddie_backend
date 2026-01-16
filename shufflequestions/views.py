@@ -2,9 +2,13 @@ from django.shortcuts import render
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.parsers import MultiPartParser, FormParser
 from rest_framework.response import Response
-from rest_framework.permissions import IsAuthenticated
+from rest_framework import status
+from rest_framework.permissions import IsAuthenticated, AllowAny
 from .utils.randomize import Randomize
+from .models import ScrambleLinks
+from .serializers import ScrambleLinksSerializer
 from root_utils.formDataToDict import parse_nested_formdata, print_formdata_content
+from hooks.pretty_print import pretty_print_json
 # from ../root_utils.formDataToDict import parse_nested_formdata
 import json
 
@@ -20,6 +24,24 @@ def generate_exam_bundle(request):
 		# print(f"Parsed form data: {json.dumps(parsed_data, indent=2)}")
 		file_url = Randomize(parsed_data)
 		print("Generated file URL:", file_url)
+
+		# save link for future downloads
+		ScrambleLinks.objects.create(
+			user=request.user,
+			link=file_url,
+		)
 		return Response({"success": "Success", "downloadLink": file_url})
-		# except Exception as e:
-		# 	return Response({"error": str(e)}, status=500)
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def get_links(request):
+	if request.method == 'GET':
+		user = request.user
+		print(f'user: {user}')
+
+		links = ScrambleLinks.objects.filter(user=user).order_by('-created_at')[:5]
+		# print(f'links: {links}')
+		serialized_links = ScrambleLinksSerializer(links, many=True).data
+		print(f'serialized_links:')
+		pretty_print_json(serialized_links)
+		return Response(serialized_links, status=status.HTTP_200_OK)
