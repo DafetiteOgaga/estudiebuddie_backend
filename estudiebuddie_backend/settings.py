@@ -14,6 +14,19 @@ from pathlib import Path
 from datetime import timedelta
 import requests, os
 
+# import sqlite3
+# from decimal import Decimal, InvalidOperation
+
+# def safe_decimal(value):
+#     if value is None:
+#         return None
+#     try:
+#         return Decimal(str(value)).quantize(Decimal("0.0001"))
+#     except (InvalidOperation, TypeError, ValueError):
+#         return None
+
+# sqlite3.register_converter("NUMERIC", safe_decimal)
+
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
