@@ -12,6 +12,7 @@ from docx import Document
 from docx.shared import Pt
 from docx.oxml import OxmlElement
 from docx.oxml.ns import qn
+from docx.oxml.shared import OxmlElement, qn
 from docx.enum.text import WD_ALIGN_PARAGRAPH, WD_LINE_SPACING
 from docx.enum.section import WD_SECTION
 from docx.shared import Inches
@@ -41,16 +42,19 @@ def schedule_deletion(zip_path, dir_path):
 		try:
 			if os.path.exists(zip_path):
 				os.remove(zip_path)
-				print(f"ZIP file {zip_path} deleted after 5 hours {timestamp}")
+				print(f"ZIP file {zip_path} deleted after 24 hours {timestamp}")
 			if os.path.exists(dir_path):
 				shutil.rmtree(dir_path)
-				print(f"Directory {dir_path} deleted after 5 hours {timestamp}")
+				print(f"Directory {dir_path} deleted after 24 hours {timestamp}")
+
+			# delete the links from models here
+
 		except Exception as e:
 			print(f"Error in scheduled cleanup {timestamp}: {e}")
 
 	Timer(delete_time, delete_files).start()
 
-def save_docx(paragraphs, file_path, add_footer=True, image_map=None):
+def save_docx(paragraphs, file_path, add_footer=True, image_map=None, logo=None):
 	# #####################
 	# print("data to use for file:")
 	# pretty_print_json(paragraphs)
@@ -69,7 +73,7 @@ def save_docx(paragraphs, file_path, add_footer=True, image_map=None):
 
 		section.left_margin = Inches(0.7)
 		section.right_margin = Inches(0.7)
-		section.top_margin = Inches(0.75)
+		section.top_margin = Inches(0)
 		section.bottom_margin = Inches(0.75)
 
 	# ============================
@@ -79,6 +83,46 @@ def save_docx(paragraphs, file_path, add_footer=True, image_map=None):
 	section1.different_first_page_header_footer = True
 
 	header = section1.first_page_header
+
+	# ============================
+	# HEADER PARAGRAPH WITH RHS LOGO
+	# ============================
+	p = header.paragraphs[0]
+	p.clear()
+
+	# right-aligned tab stop at page margin
+	pPr = p._p.get_or_add_pPr()
+	tabs = OxmlElement('w:tabs')
+	tab = OxmlElement('w:tab')
+	tab.set(qn('w:val'), 'right')
+	tab.set(qn('w:pos'), str(int(Inches(7.2).emu)))  # usable page width
+	tabs.append(tab)
+	pPr.append(tabs)
+
+	# column widths
+	# left_cell.width = Inches(5.5)
+	# right_cell.width = Inches(1.5)
+
+	# ============================
+	# LOGO (HEADER - FIRST PAGE ONLY)
+	# ============================
+	if logo:
+		logo_para = header.add_paragraph()
+		logo_para.alignment = WD_ALIGN_PARAGRAPH.CENTER
+
+		run = logo_para.add_run()
+		run.add_picture(
+			logo,
+			width=Inches(0.7)  # adjust if needed
+		)
+
+		logo_para.paragraph_format.space_before = Pt(0)
+		logo_para.paragraph_format.space_after = Pt(1)
+		# run = p.add_run("\t")
+		# run.add_picture(
+		# 	logo,
+		# 	width=Inches(1.2)  # logo size ONLY
+		# )
 	# header_para = header.paragraphs[0]
 
 	header_lines = []
@@ -91,7 +135,8 @@ def save_docx(paragraphs, file_path, add_footer=True, image_map=None):
 		header_lines.append(line)
 
 	# Clear default paragraph
-	header.paragraphs[0].clear()
+	# header.paragraphs[0].clear()
+	# header.paragraphs[0].clear()
 
 	school, subject, clazz, term, duration, instruction, variant, qtype = header_lines
 
@@ -125,21 +170,25 @@ def save_docx(paragraphs, file_path, add_footer=True, image_map=None):
 	p.paragraph_format.line_spacing = 0.5
 	p.paragraph_format.line_spacing_rule = WD_LINE_SPACING.SINGLE
 
-	# --- Variant ID (left) | Type (right)
+	# --- Variant ID (left)
 	p = header.add_paragraph()
 	p.add_run(variant)
-	p.add_run("\t" * 4)
+	p.paragraph_format.space_before = Pt(0)
+	p.paragraph_format.space_after = Pt(2)
+	p.paragraph_format.line_spacing = 0.5
+	p.paragraph_format.line_spacing_rule = WD_LINE_SPACING.SINGLE
+
+	# --- Duration (left) | Type (center) | Instruction (right)
+	p = header.add_paragraph()
+	p.add_run(duration)
+	p.add_run("\t" * 2)
 	p.add_run(qtype)
 	p.alignment = WD_ALIGN_PARAGRAPH.LEFT
 	p.paragraph_format.space_before = Pt(0)
 	p.paragraph_format.space_after = Pt(2)
 	p.paragraph_format.line_spacing = 0.5
 	p.paragraph_format.line_spacing_rule = WD_LINE_SPACING.SINGLE
-
-	# --- Duration (left) | Instruction (right)
-	p = header.add_paragraph()
-	p.add_run(duration)
-	p.add_run("\t" * 6)
+	p.add_run("\t" * 1)
 	p.add_run(instruction).bold = True
 	p.alignment = WD_ALIGN_PARAGRAPH.LEFT
 	p.paragraph_format.space_before = Pt(0)
@@ -225,8 +274,11 @@ def Randomize(data):
 		minutes = f"{now.minute:02d}"
 		seconds = f"{now.second:02d}"
 
+		# get subject
+		subject = data['subject'].lower()
+
 		# Combine to form variantId
-		variant_id = f"{year}{month}{date}_{hours}{minutes}{seconds}_{random_str}"
+		variant_id = f"{subject}_{year}{month}{date}_{hours}{minutes}{seconds}_{random_str}"
 		print("Generated variant ID:")
 		pretty_print_json(variant_id)
 
@@ -253,7 +305,7 @@ def Randomize(data):
 			# Shuffle questions
 			questions = shuffle_array(data['postQuestions'])
 			answer_key = [
-				f"Variant ID: {variant_id}",
+				f"variant: {variant_id}",
 				f"Type: {type_code}",
 				""
 			]
@@ -297,7 +349,7 @@ def Randomize(data):
 				f"{data['term'].title()} Term",
 				f"Duration: {duration_str}",
 				f"Instruction: {data['instruction'].title()}",
-				f"Variant ID: {variant_id}",
+				f"variant: {variant_id}",
 				f"Type: {type_code}",
 				""
 			]
@@ -385,6 +437,7 @@ def Randomize(data):
 				question_path_for_docx,
 				add_footer=False,
 				image_map=image_map,
+				logo=data.get("logo", None),
 			)
 
 			# # pdf creation
