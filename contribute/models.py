@@ -83,9 +83,9 @@ class QuizAnswer(models.Model):
         on_delete=models.CASCADE,
         related_name="rn_question_answers"
     )
-    response_duration = models.DecimalField(
-        max_digits=6,
-        decimal_places=4,
+    response_duration = models.FloatField(
+        # max_digits=6,
+        # decimal_places=4,
         null=True,
         blank=True
     )
