@@ -552,7 +552,6 @@ mock_questions = [
 		"correct_answer": "Mars",
 	}
 ]
-go_test = True
 
 
 # Create your views here.
@@ -602,6 +601,7 @@ def take_quiz(request):
 		# print(f'duration: {duration}')
 		# print(f'name: {name}')
 
+		go_test = True
 		try:
 			if go_test: # test development
 				category = Category.objects.get(
@@ -711,6 +711,7 @@ def grade_quiz(request):
 	# return Response({'resp': 'all good'})
 
 	# Fetch all questions in ONE query
+	go_test = True
 	if go_test: # test development
 		questions = [item for item in mock_questions if item["id"] in submitted_map.keys()] # remove mock in full production
 		print('Questions:')
