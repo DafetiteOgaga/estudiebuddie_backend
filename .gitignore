@@ -21,3 +21,6 @@ user/migrations/__pycache__
 user/__pycache__
 take_quiz/migrations/__pycache__
 take_quiz/__pycache__
+contribute/migrations
+user/migrations
+shufflequestions/migrations
