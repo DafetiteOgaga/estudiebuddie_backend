@@ -605,9 +605,7 @@ def take_quiz(request):
 		try:
 			if go_test: # test development
 				category = Category.objects.get(
-					type_category="basic",
-					class_category="basic-1",
-					subject_category="mathematics",
+					id=1
 				)
 			else:
 				category = Category.objects.get(
