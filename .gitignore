@@ -22,5 +22,5 @@ user/__pycache__
 take_quiz/migrations/__pycache__
 take_quiz/__pycache__
 contribute/migrations
-contribute/migrations/0001_initial.py
+user/migrations
 shufflequestions/migrations
