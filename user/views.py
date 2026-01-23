@@ -3,6 +3,7 @@ from rest_framework.decorators import api_view, permission_classes
 from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.permissions import IsAuthenticated, AllowAny
+from rest_framework_simplejwt.tokens import RefreshToken
 from hooks.pretty_print import pretty_print_json
 from django.contrib.auth import get_user_model
 User = get_user_model()
@@ -31,21 +32,30 @@ def create_user(request):
 			return Response({"error": username_exist}, status=status.HTTP_400_BAD_REQUEST)
 		# return Response({"ok": "all good"}, status=status.HTTP_200_OK)
 		serializer = UserSerializer(data=payload)
-		if serializer.is_valid():
-			print("Data that WILL be saved (not yet saved):")
-			pretty_print_json(serializer.validated_data)
-			# return Response({"ok": "all good"}, status=status.HTTP_200_OK)
-			serializer.save()
-			user_serializer = serializer.data
-		else:
+		if not serializer.is_valid():
 			not_saved = "Unable to update information"
 			user_serializer = serializer.errors
 			print(f'user_serializer: {user_serializer}')
 			print(f'error message: {serializer.error_messages}')
 			return Response({"error": not_saved}, status=status.HTTP_400_BAD_REQUEST)
+
+		print("Data that WILL be saved (not yet saved):")
+		pretty_print_json(serializer.validated_data)
+		# return Response({"ok": "all good"}, status=status.HTTP_200_OK)
+		user = serializer.save()
+		refresh = RefreshToken.for_user(user)
+
+		data = {
+			"refresh": str(refresh),
+			"access": str(refresh.access_token),
+			"user": UserSerializer(user).data,
+		}
+
+		# user_serializer = serializer.data
+
 		print('created user:')
-		pretty_print_json(user_serializer)
-		return Response(user_serializer, status=status.HTTP_201_CREATED)
+		pretty_print_json(data)
+		return Response(data, status=status.HTTP_201_CREATED)
 
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
