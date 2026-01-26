@@ -160,6 +160,7 @@ CORS_ALLOWED_ORIGINS = [
     "http://127.0.0.1:3000", # React dev server
     "http://localhost:3000",  # React dev server
     "https://dafetiteogaga.github.io",  # If deployed
+    "https://estudiebuddie-frontend.pages.dev", # cloudflare
 ]
 # CORS_ALLOW_ALL_ORIGINS = True # Allow all origins for development purposes
 
