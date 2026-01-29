@@ -23,4 +23,4 @@ EXPOSE 8080
 
 # CMD ["gunicorn", "estudiebuddie_backend.wsgi:application", "--bind", "0.0.0.0:$PORT"]
 # CMD ["gunicorn","--bind",":$PORT","--workers","2","estudiebuddie_backend.wsgi"]
-CMD sh -c "gunicorn estudiebuddie_backend.wsgi:application --bind 0.0.0.0:$PORT --workers 2"
+CMD ["gunicorn", "estudiebuddie_backend.wsgi:application", "--bind", "0.0.0.0:8080", "--workers", "2"]
