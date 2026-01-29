@@ -19,8 +19,8 @@ COPY . /code
 ENV SECRET_KEY "nSd5Gkv6EKODoqhiRY46NG3S7KmOKPg9CFNf5owODdb5zcm8Sa"
 RUN python manage.py collectstatic --noinput
 
-EXPOSE 8000
+EXPOSE 8080
 
 # CMD ["gunicorn", "estudiebuddie_backend.wsgi:application", "--bind", "0.0.0.0:$PORT"]
 # CMD ["gunicorn","--bind",":$PORT","--workers","2","estudiebuddie_backend.wsgi"]
-CMD ["gunicorn", "estudiebuddie_backend.wsgi:application", "--bind", "0.0.0.0:8080", "--workers"
+CMD sh -c "gunicorn estudiebuddie_backend.wsgi:application --bind 0.0.0.0:$PORT --workers 2"
