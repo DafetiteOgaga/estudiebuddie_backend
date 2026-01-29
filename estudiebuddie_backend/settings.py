@@ -38,7 +38,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = 'django-insecure-m#yo8x92w6537bjl9v2z1iqqn==drfoqzo%tyi@=fn(ci!+h+q'
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = False
+DEBUG = True
 
 ALLOWED_HOSTS = [
     'localhost',
@@ -46,6 +46,7 @@ ALLOWED_HOSTS = [
     'estudiebuddieremake.pythonanywhere.com',
     "api.classicbrownline.com",
     ".fly.dev",
+    "estudiebuddie-backend.fly.dev",
     ]
 
 
