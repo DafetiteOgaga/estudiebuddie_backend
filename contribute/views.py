@@ -103,6 +103,8 @@ def contribute(request):
 		print('success.')
 		response = {
 			"saved": f"{len(bulk_questions)} questions",
-			"skipped_duplicates": duplicate_questions
+			"skipped_duplicates": len(duplicate_questions)
 		}
+		more_details = {**response, "skipped_duplicates_details": duplicate_questions}
+		pretty_print_json(more_details)
 		return Response(response, status=status.HTTP_201_CREATED)
