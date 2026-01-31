@@ -13,6 +13,7 @@ https://docs.djangoproject.com/en/5.0/ref/settings/
 from pathlib import Path
 from datetime import timedelta
 import requests, os
+import dj_database_url
 
 # import sqlite3
 # from decimal import Decimal, InvalidOperation
@@ -30,6 +31,7 @@ import requests, os
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
+DATABASE_URL = os.getenv("DATABASE_URL")
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/5.0/howto/deployment/checklist/
@@ -107,12 +109,30 @@ WSGI_APPLICATION = 'estudiebuddie_backend.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/5.0/ref/settings/#databases
 
-DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
+if DATABASE_URL:
+    # Fly.io / Neon Postgres
+    DATABASES = {
+        "default": dj_database_url.parse(
+            DATABASE_URL,
+            conn_max_age=600,
+            ssl_require=True,
+        )
     }
-}
+else:
+    # Local dev → SQLite
+    DATABASES = {
+        "default": {
+            "ENGINE": "django.db.backends.sqlite3",
+            "NAME": BASE_DIR / "db.sqlite3",
+        }
+    }
+
+# DATABASES = {
+#     'default': {
+#         'ENGINE': 'django.db.backends.sqlite3',
+#         'NAME': BASE_DIR / 'db.sqlite3',
+#     }
+# }
 
 
 # Password validation
@@ -187,7 +207,7 @@ REST_FRAMEWORK = {
 }
 
 SIMPLE_JWT = {
-    "ACCESS_TOKEN_LIFETIME": timedelta(minutes=2),   # default 5, now 15 minutes
+    "ACCESS_TOKEN_LIFETIME": timedelta(days=1), # timedelta(minutes=15),   # default 5, now 15 minutes
     "REFRESH_TOKEN_LIFETIME": timedelta(days=14),     # default 1, now 14 days
     "ROTATE_REFRESH_TOKENS": True,                   # issue a new refresh each time
     "BLACKLIST_AFTER_ROTATION": True,                # block old refresh after rotation
