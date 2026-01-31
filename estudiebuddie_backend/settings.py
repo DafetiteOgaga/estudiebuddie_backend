@@ -79,7 +79,7 @@ MIDDLEWARE = [
     "whitenoise.middleware.WhiteNoiseMiddleware", # whitenoise
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
-    # 'django.middleware.csrf.CsrfViewMiddleware',
+    'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
@@ -189,6 +189,10 @@ CORS_ALLOWED_ORIGINS = [
     "https://estudiebuddie-frontend.pages.dev", # cloudflare
 ]
 # CORS_ALLOW_ALL_ORIGINS = True # Allow all origins for development purposes
+CSRF_TRUSTED_ORIGINS = [
+    'https://estudiebuddie-backend.fly.dev',
+    'https://estudiebuddie-frontend.pages.dev',
+]
 
 response = requests.get("https://dafetiteapiendpoint.pythonanywhere.com/get-imagekit-apis/")
 data = response.json()
