@@ -24,8 +24,8 @@ class User(AbstractUser):
 	class Meta:
 		ordering = ['id']
 
-	USERNAME_FIELD = 'email'
-	REQUIRED_FIELDS = []
+	# USERNAME_FIELD = 'email'
+	# REQUIRED_FIELDS = []
 
 	# Fields that should always be lowercase
 	LOWERCASE_FIELDS = [
