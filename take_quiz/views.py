@@ -591,7 +591,7 @@ def take_quiz(request):
 		subject_category = payload.get("subject").lower()
 		email = payload.get("email", None)
 		number_of_questions = int(payload.get("noOfQs", 60))
-		duration = float(payload.get("duration"))
+		duration = payload.get("duration")
 		name = payload.get("name")
 
 		# print(f'type: {type_category}')
@@ -601,13 +601,21 @@ def take_quiz(request):
 		# print(f'duration: {duration}')
 		# print(f'name: {name}')
 
+		try:
+			duration = float(duration)
+		except:
+			return Response({"error": "Invalid, take new quiz"})
 		go_test = True
 		try:
 			if go_test: # test development
-				category = Category.objects.get(
+				print('in development')
+				category, created = Category.objects.get_or_create(
 					id=1
 				)
+				if created:
+					print('created category')
 			else:
+				print('not in development')
 				category = Category.objects.get(
 					type_category=type_category,
 					class_category=class_category,
@@ -837,7 +845,7 @@ def send_time(request, session_id):
 		if not quiz_session:
 			invalid_session = "Invalid Session."
 			print(invalid_session)
-			return Response({"error": invalid_session}, status=status.HTTP_400_BAD_REQUEST)
+			return Response({"error": invalid_session}, status=status.HTTP_226_IM_USED)
 		if new_session == "true":
 			quiz_session.started_at = timezone.now()
 			quiz_session.save()
