@@ -26,3 +26,4 @@ user/migrations
 shufflequestions/migrations
 school/migrations/__pycache__
 school/__pycache__
+school/migrations
