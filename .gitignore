@@ -24,3 +24,5 @@ take_quiz/__pycache__
 contribute/migrations
 user/migrations
 shufflequestions/migrations
+school/migrations/__pycache__
+school/__pycache__
