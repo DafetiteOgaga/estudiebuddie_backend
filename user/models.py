@@ -20,6 +20,17 @@ class User(AbstractUser):
 	password = models.CharField(max_length=128, null=True, blank=True)
 	contributor = models.BooleanField(default=False)
 	is_deleted = models.BooleanField(default=False)
+	must_change_password = models.BooleanField(default=False)
+
+	# school details
+	# is_school_admin = models.BooleanField(default=False)
+	school = models.ForeignKey(
+        'school.School',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="rn_users_school"
+    )
 
 	class Meta:
 		ordering = ['id']
