@@ -2,54 +2,134 @@ from django.shortcuts import render
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.response import Response
 from rest_framework import status
-from rest_framework.permissions import IsAuthenticated, AllowAny
+from rest_framework.permissions import IsAuthenticated, AllowAny, IsAdminUser
 from rest_framework_simplejwt.tokens import RefreshToken
 from hooks.pretty_print import pretty_print_json
+from root_utils.formDataToDict import generate_esb_code, cleanup_old_zips
+from django.db import transaction
 from django.contrib.auth import get_user_model
 User = get_user_model()
-from .serializers import UserSerializer
+from .serializers import UserSerializer, PulledUserSerializer
+from school.models import School, ValidCode
 
 # Create your views here.
 @api_view(['POST'])
 @permission_classes([AllowAny])
 def create_user(request):
+	cleanup_old_zips()
 	if request.method == 'POST':
-		payload = request.data
-		email = payload.get("email", None)
-		username = payload.get("username", None)
-		print(f'email: {email}\nusername: {username}')
-		print(f'payload:')
-		pretty_print_json(payload)
-		email_check = User.objects.filter(email=email).exists()
-		username_check = User.objects.filter(username=username).exists()
-		if email_check:
-			email_exist = "This email has been taken. Please, use another one."
-			print(email_exist)
-			return Response({"error": email_exist}, status=status.HTTP_400_BAD_REQUEST)
-		if username_check:
-			username_exist = "This username has been taken. Please, use another one."
-			print(username_exist)
-			return Response({"error": username_exist}, status=status.HTTP_400_BAD_REQUEST)
-		# return Response({"ok": "all good"}, status=status.HTTP_200_OK)
-		serializer = UserSerializer(data=payload)
-		if not serializer.is_valid():
-			not_saved = "Unable to update information"
-			user_serializer = serializer.errors
-			print(f'user_serializer: {user_serializer}')
-			print(f'error message: {serializer.error_messages}')
-			return Response({"error": not_saved}, status=status.HTTP_400_BAD_REQUEST)
+		payload = request.data.copy()
+		esb_code = payload.get("esb_code", None)
+		school = payload.get("school", None)
+		acronym = payload.get("acronym", None)
+		password_provided = payload.get("password", None)
+		print(f'esb_code: {esb_code}')
+		print(f'school: {school} - {acronym}')
 
-		print("Data that WILL be saved (not yet saved):")
-		pretty_print_json(serializer.validated_data)
-		# return Response({"ok": "all good"}, status=status.HTTP_200_OK)
-		user = serializer.save()
+		try:
+			with transaction.atomic():
+				if esb_code:
+					print('got code')
+					print(f'user is: {payload["role"]}')
+					if not school:
+						print('has head code but no school input.')
+						raise ValueError("school not provided")
+
+					validated_code = ValidCode.objects.filter(valid_code=esb_code).first()
+					if not validated_code:
+						expired_code_txt = 'code has been used.'
+						print(expired_code_txt)
+						raise ValueError(expired_code_txt)
+
+					print('code validated')
+					print('getting or creating school')
+					new_school, new_school_created = School.objects.get_or_create(
+						code=validated_code.valid_code,
+						defaults={
+							"name": school.strip().lower(),
+							"acronym": acronym.upper(),
+						}
+					)
+					print('created school' if new_school_created else 'fetched school')
+					print('adding school to payload')
+					payload["school_id"] = new_school.id
+					print('invalidating code')
+					#################
+					# return Response({"error": "done!"}, status=status.HTTP_400_BAD_REQUEST)
+					validated_code.delete()
+				else:
+					print('got no code')
+					print(f'user is: {request.user}')
+					if request.user.is_authenticated and (request.user.role=="head" or request.user.role=="admin"):
+						print(f'user is: {request.user.role}')
+						print('adding school to payload')
+						payload["school_id"] = request.user.school.id
+					else:
+						print('removing school from payload (not linked to any school)')
+						payload.pop("school", None)
+
+				email = payload.get("email", None)
+				username = payload.get("username", None)
+				print(f'email: {email}\nusername: {username}')
+				print(f'payload:')
+				pretty_print_json(payload)
+				email_check = User.objects.filter(email=email).exists()
+				username_check = User.objects.filter(username=username).exists()
+				if email_check:
+					email_exist = "This email has been taken. Please, use another one."
+					print(email_exist)
+					return Response({"error": email_exist}, status=status.HTTP_400_BAD_REQUEST)
+				if username_check:
+					username_exist = "This username has been taken. Please, use another one."
+					print(username_exist)
+					return Response({"error": username_exist}, status=status.HTTP_400_BAD_REQUEST)
+				# return Response({"ok": "all good"}, status=status.HTTP_200_OK)
+				serializer = UserSerializer(data=payload)
+				if not serializer.is_valid():
+					not_saved = "Unable to update information"
+					user_serializer = serializer.errors
+					print(f'user_serializer: {user_serializer}')
+					print(f'error message: {serializer.error_messages}')
+					raise ValueError(not_saved)
+
+				print("Data that WILL be saved (not yet saved):")
+				pretty_print_json(serializer.validated_data)
+				# return Response({"error": "all good"}, status=status.HTTP_400_BAD_REQUEST)
+				user = serializer.save()
+		except ValueError as e:
+			# Business logic / validation errors
+			return Response(
+				{"error": str(e)},
+				status=status.HTTP_400_BAD_REQUEST
+			)
+
+		except Exception as e:
+			print(f'account creation error: {str(e)}')
+			return Response(
+				{"error": "Oopsy! something went wrong duriing account creation"},
+				status=status.HTTP_500_INTERNAL_SERVER_ERROR
+			)
+
+		data = {}
+		serialized_user = UserSerializer(user).data
+		print(f'serialized_user:')
+		pretty_print_json(serialized_user)
+		if not password_provided:
+			temp_password = serialized_user["username"]
+			print(f'created user with temprary password: {temp_password}')
+			tmp_data = {**data, **serialized_user}
+			tmp_data["temp_password"] = temp_password
+			pretty_print_json(tmp_data)
+			data["temp_password"] = temp_password
+			# user.must_change_password = True
+			# user.save()
+			return Response(data, status=status.HTTP_201_CREATED)
+
 		refresh = RefreshToken.for_user(user)
 
-		data = {
-			"refresh": str(refresh),
-			"access": str(refresh.access_token),
-			"user": UserSerializer(user).data,
-		}
+		data["user"] = serialized_user
+		data["refresh"] = str(refresh),
+		data["access"] = str(refresh.access_token),
 
 		# user_serializer = serializer.data
 
@@ -60,6 +140,7 @@ def create_user(request):
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
 def update_user(request):
+	cleanup_old_zips()
 	if request.method == 'POST':
 		pk = request.user.id
 		payload = request.data
@@ -94,26 +175,78 @@ def update_user(request):
 @permission_classes([AllowAny])
 def check_username(request):
 	# Access query parameter
-    username = request.GET.get('username') # ?username=johndoe
-    print(f'username: {username}')
+	username = request.GET.get('username') # ?username=johndoe
+	print(f'username: {username}')
 
-    response_data = "available"
-    if User.objects.filter(username=username).exists():
-        response_data = "not_available"
-    print(f'response_data: {response_data}')
+	response_data = "available"
+	if User.objects.filter(username=username).exists():
+		response_data = "not_available"
+	print(f'response_data: {response_data}')
 
-    return Response(response_data, status=status.HTTP_200_OK)
+	return Response(response_data, status=status.HTTP_200_OK)
 
 @api_view(['GET'])
 @permission_classes([AllowAny])
 def check_email(request):
 	# Access query parameter
-    email = request.GET.get('email') # ?email=someone@example.com
-    print(f'email: {email}')
+	email = request.GET.get('email') # ?email=someone@example.com
+	print(f'email: {email}')
 
-    response_data = "available"
-    if User.objects.filter(email=email).exists():
-        response_data = "not_available"
-    print(f'response_data: {response_data}')
+	response_data = "available"
+	if User.objects.filter(email=email).exists():
+		response_data = "not_available"
+	print(f'response_data: {response_data}')
 
-    return Response(response_data, status=status.HTTP_200_OK)
+	return Response(response_data, status=status.HTTP_200_OK)
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def get_school_code_link(request, code_type):
+	user = request.user
+	user_id = user.id
+	print(f'user: {user}')
+	print(f'user_id: {user_id}')
+	print(f'code_type: {code_type}')
+	if user.is_superuser:
+		esb_code = generate_esb_code(user_id)
+	elif user.role == "head" or user.role == "admin":
+		esb_code = generate_esb_code(user_id, code_type=code_type)
+	else:
+		print({"error": "You do not have permission for this request."})
+		return Response({"error": "You do not have permission for this request."},
+							status=status.HTTP_400_BAD_REQUEST)
+	code = ValidCode.objects.create(valid_code=esb_code)
+	print(f'esb_code created: {code.valid_code}')
+	return Response({"esb_code": esb_code}, status=status.HTTP_200_OK)
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def pull_users(request):
+	cleanup_old_zips()
+	user = request.user
+	exclude_list = ["head", "admin"]
+	print(f'user.school: {user.school}\nuser.school.id: {user.school.id}')
+	if not user.school or not user.school.id:
+		not_school = "You do not have permission for this action"
+		print(not_school)
+		return Response({"error": not_school}, status=status.HTTP_400_BAD_REQUEST)
+	if user.role not in exclude_list:
+		not_admin = "You are not admin"
+		print(not_admin)
+		return Response({"error": not_admin}, status=status.HTTP_400_BAD_REQUEST)
+	# exclude_list = ["head"]
+	exclude_list = ["head"] if user.role == "admin" else []
+	school = user.school
+	print(f'user: {user}')
+	print(f'user is {user.role}')
+	# if user.role == "head":
+	# 	exclude_list = []
+	print(f'school id: {school.id}')
+	users = User.objects.filter(
+		school=school,
+	).exclude(role__in=exclude_list)
+	print(f'users: {users}')
+	serialized_users = PulledUserSerializer(users, many=True).data
+	print(f'users:')
+	pretty_print_json(serialized_users)
+	return Response(serialized_users, status=status.HTTP_200_OK)
