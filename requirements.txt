@@ -10,6 +10,7 @@ djangorestframework==3.16.0
 djangorestframework_simplejwt==5.5.1
 gunicorn==24.1.1
 idna==3.11
+latex2mathml==3.78.1
 lxml==6.0.0
 packaging==26.0
 psycopg2-binary==2.9.11
