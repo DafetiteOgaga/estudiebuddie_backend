@@ -22,6 +22,7 @@ import os
 
 urlpatterns = [
     path('admin/', admin.site.urls),
+    path('school/', include('school.urls')),     # For school configuration
     path('user/', include('user.urls')),     # For user configuration
     path('', include('auth_app.urls')),     # For auth_app configuration
     path('shufflequestions/', include('shufflequestions.urls')),     # For shufflequestions configuration
