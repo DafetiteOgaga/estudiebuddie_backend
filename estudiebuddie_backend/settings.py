@@ -61,6 +61,7 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    'school',		# <- added startapp here
     'user',		# <- added startapp here
     'auth_app',		# <- added startapp here
     'shufflequestions',		# <- added startapp here
@@ -211,7 +212,7 @@ REST_FRAMEWORK = {
 }
 
 SIMPLE_JWT = {
-    "ACCESS_TOKEN_LIFETIME": timedelta(days=1), # timedelta(minutes=15),   # default 5, now 15 minutes
+    "ACCESS_TOKEN_LIFETIME": timedelta(hours=24), # timedelta(minutes=15),   # default 5, now 15 minutes
     "REFRESH_TOKEN_LIFETIME": timedelta(days=14),     # default 1, now 14 days
     "ROTATE_REFRESH_TOKENS": True,                   # issue a new refresh each time
     "BLACKLIST_AFTER_ROTATION": True,                # block old refresh after rotation
