@@ -225,8 +225,8 @@ def pull_users(request):
 	cleanup_old_zips()
 	user = request.user
 	exclude_list = ["head", "admin"]
-	print(f'user.school: {user.school}\nuser.school.id: {user.school.id}')
-	if not user.school or not user.school.id:
+	school = getattr(user, "school", None)
+	if not school:
 		not_school = "You do not have permission for this action"
 		print(not_school)
 		return Response({"error": not_school}, status=status.HTTP_400_BAD_REQUEST)
@@ -236,7 +236,7 @@ def pull_users(request):
 		return Response({"error": not_admin}, status=status.HTTP_400_BAD_REQUEST)
 	# exclude_list = ["head"]
 	exclude_list = ["head"] if user.role == "admin" else []
-	school = user.school
+	print(f'school: {school}\nschool.id: {school.id}')
 	print(f'user: {user}')
 	print(f'user is {user.role}')
 	# if user.role == "head":
