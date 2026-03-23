@@ -1,4 +1,5 @@
 import re, json, string, secrets, os, time
+from pathlib import Path
 from django.conf import settings
 from collections import defaultdict
 from shufflequestions.models import ScrambleLinks
@@ -212,9 +213,12 @@ def cleanup_old_zips():
     #     print(i)
 
     # ---- collect zip files on disk in a set (set comprehension) ----
-    zip_files_on_disk = {
-        file for file in os.listdir(public_dir) if file.endswith(".zip")
-    }
+    if not os.path.isdir(public_dir):
+        zip_files_on_disk = set()
+    else:
+        zip_files_on_disk = {
+            file for file in os.listdir(public_dir) if file.endswith(".zip")
+        }
     # print(f'zip_files_on_disk:')
     # for i in zip_files_on_disk:
     #     print(i)
