@@ -105,6 +105,7 @@ mock_data = {
 }
 
 @api_view(['GET'])
+@permission_classes([IsAuthenticated])
 def imagekit_auth(request):
     print("Generating ImageKit auth token (imagekit_auth)...")
     token = uuid.uuid4().hex # str(int(time.time()))
@@ -173,6 +174,7 @@ def test_view(request):
     return Response({'data': 'all good'}, status=status.HTTP_200_OK)
 
 @api_view(['GET'])
+@permission_classes([AllowAny])
 def leaderboard_mock(request):
     print(f'request data')
     pretty_print_json(request.data)
