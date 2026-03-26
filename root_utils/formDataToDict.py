@@ -145,7 +145,7 @@ def print_formdata_content(formdata, files=None):
     print("Form Data Content:")
     print(json.dumps(safe_data, indent=2))
 
-def generate_esb_code(user_id, code_type='school'):
+def generate_esb_code(school_id, code_type='school'):
     """
     Generates a unique school/admin/teacher codes like:
     ESB-8F3K2Q/ESBA-8F3K2Q/ESBT-8F3K2Q
@@ -171,7 +171,7 @@ def generate_esb_code(user_id, code_type='school'):
         random_part = ''.join(secrets.choice(alphabet) for _ in range(LENGTH))
         code = f"{PREFIX}-{random_part}"
         if code_type == "admin" or code_type == "teacher":
-            code = f"{PREFIX}-{random_part}l{user_id}"
+            code = f"{PREFIX}-{random_part}l{school_id}"
         print(f'generated code: {code}')
 
         if not School.objects.filter(code=code).exists():

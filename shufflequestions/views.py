@@ -54,10 +54,16 @@ def handle_shuffle_record(data):
 				print('saved_question is valid')
 				saved_question = saved_question.save()
 				print(saved_question)
-	# if saved_question:
-	print('ready to take shuffle_record!')
-	pretty_print_json(shuffle_record)
-	saved_question.shuffle_record = shuffle_record
+				print('created new session')
+	else:
+		if post_payload and request:
+			saved_question.scramble_session_data = post_payload
+			print('updated session')
+	if shuffle_record:
+		print('ready to take shuffle_record!')
+		pretty_print_json(shuffle_record)
+		saved_question.shuffle_record = shuffle_record
+		print('shuffle record saved!')
 	saved_question.save()
 
 # Create your views here.
@@ -90,7 +96,8 @@ def generate_exam_bundle(request):
 
 		print(f'user: {user}')
 		print(f'school: {school}')
-		if school and shuffle_record:
+		print(f'shuffle_record: {shuffle_record}')
+		if school:
 			handle_shuffle_record({
 				"user": user,
 				"school": school,

@@ -22,18 +22,24 @@ class ScrambleSession(models.Model):
 	updated_at = models.DateTimeField(auto_now=True)
 
 class School(models.Model):
-	name = models.CharField(max_length=200)
+	name = models.CharField(
+		max_length=200,
+		null=True,
+		blank=True,)
 	acronym = models.CharField(
-        max_length=50,
-        null=True,
-        blank=True,
-    )
+		max_length=50,
+		null=True,
+		blank=True,
+	)
 	code = models.CharField(max_length=100, unique=True, db_index=True)
 	created_at = models.DateTimeField(auto_now_add=True)
 	updated_at = models.DateTimeField(auto_now=True)
 
 	def save(self, *args, **kwargs):
-		self.acronym = self.acronym.upper()
+		if self.acronym is not None:
+			self.acronym = self.acronym.upper()
+		if self.name is not None:
+			self.name = self.acronym.strip().lower()
 		super().save(*args, **kwargs)
 
 	def __str__(self):
@@ -65,4 +71,4 @@ class ValidCode(models.Model):
 	created_at = models.DateTimeField(auto_now_add=True)
 
 	def __str__(self) -> str:
-		return self.valid_code
+		return f'{self.valid_code}'
