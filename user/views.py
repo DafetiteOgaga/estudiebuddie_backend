@@ -23,6 +23,8 @@ def create_user(request):
 		school = payload.get("school", None)
 		acronym = payload.get("acronym", None)
 		password_provided = payload.get("password", None)
+		print('payload:')
+		pretty_print_json(payload)
 		print(f'esb_code: {esb_code}')
 		print(f'school: {school} - {acronym}')
 
@@ -31,29 +33,43 @@ def create_user(request):
 				if esb_code:
 					print('got code')
 					print(f'user is: {payload["role"]}')
-					if not school:
-						print('has head code but no school input.')
-						raise ValueError("school not provided")
 
 					validated_code = ValidCode.objects.filter(valid_code=esb_code).first()
+					print(f'validated_code: {validated_code}')
 					if not validated_code:
 						expired_code_txt = 'code has been used.'
 						print(expired_code_txt)
 						raise ValueError(expired_code_txt)
 
-					print('code validated')
 					print('getting or creating school')
-					new_school, new_school_created = School.objects.get_or_create(
-						code=validated_code.valid_code,
-						defaults={
-							"name": school.strip().lower(),
-							"acronym": acronym.upper(),
-						}
-					)
-					print('created school' if new_school_created else 'fetched school')
+					school_to_use = None
+					if school and acronym:
+						print(f'got both: {school}\n{acronym}')
+						school_to_use = School.objects.filter(
+							code=validated_code.valid_code,
+							name=school.strip().lower(),
+							acronym=acronym.upper(),
+						)
+					else:
+						validated_code_str = validated_code.valid_code
+						i_index = validated_code_str.rfind("l")
+						found_school_id = None
+						if i_index > 0:
+							print(f'i_index: {i_index}')
+							found_school_id = validated_code_str[(i_index+1):]
+							print(f'found_school_id: {found_school_id}')
+						print('got none, so using school id')
+						school_to_use = School.objects.get(
+							id=found_school_id
+						)
+					print('code validated')
+					print(f'school found: {school_to_use}')
+
 					print('adding school to payload')
-					payload["school_id"] = new_school.id
+					payload["school_id"] = school_to_use.id
 					print('invalidating code')
+					# print(f'payload 2222:')
+					# pretty_print_json(payload)
 					#################
 					# return Response({"error": "done!"}, status=status.HTTP_400_BAD_REQUEST)
 					validated_code.delete()
@@ -67,14 +83,21 @@ def create_user(request):
 					else:
 						print('removing school from payload (not linked to any school)')
 						payload.pop("school", None)
-
+				print(f'payload 2222:')
+				pretty_print_json(payload)
+				# return Response({"error": "done!"}, status=status.HTTP_400_BAD_REQUEST)
 				email = payload.get("email", None)
 				username = payload.get("username", None)
 				print(f'email: {email}\nusername: {username}')
 				print(f'payload:')
 				pretty_print_json(payload)
 				email_check = User.objects.filter(email=email).exists()
-				username_check = User.objects.filter(username=username).exists()
+				if username is None:
+					username_check = False
+				else:
+					username_check = User.objects.filter(username=username).exists()
+				print(f'email_check: {email_check}')
+				print(f'username_check: {username_check}')
 				if email_check:
 					email_exist = "This email has been taken. Please, use another one."
 					print(email_exist)
@@ -142,18 +165,27 @@ def create_user(request):
 def update_user(request):
 	cleanup_old_zips()
 	if request.method == 'POST':
+		qp = request.query_params
+		print(f'qp: {qp}')
+		must_change_p = qp.get("must_change_password", None)
+		print(f'must_change_p(raw): {must_change_p}')
+		must_change_p = must_change_p == "true"
+		print(f'must_change_p(bool): {must_change_p}')
 		pk = request.user.id
 		payload = request.data
 		print(f'payload with id: {pk}')
 		# print(f'request user: {request.user}')
 		pretty_print_json(payload)
-		# return Response({"ok": "all good"}, status=status.HTTP_200_OK)
+		# return Response({"ok": "all good"}, status=status.HTTP_400_BAD_REQUEST)
 		user = User.objects.filter(id=pk).first()
 		print(f'user: {user}')
+		# return Response({"ok": "all good"}, status=status.HTTP_400_BAD_REQUEST)
 		if not user:
 			user_not_exist = "User does not exist."
 			print(user_not_exist)
 			return Response({"error": user_not_exist}, status=status.HTTP_400_BAD_REQUEST)
+		payload["must_change_password"] = False
+		payload["username"] = ""
 		serializer = UserSerializer(user, data=payload, partial=True)
 		if serializer.is_valid():
 			print("Data that WILL be saved (not yet saved):")
@@ -168,6 +200,12 @@ def update_user(request):
 			print(f'error message: {serializer.error_messages}')
 			return Response({"error": not_saved}, status=status.HTTP_400_BAD_REQUEST)
 		print('updated user:')
+		if must_change_p:
+			user_serializer = {
+				"must_change_password": user_serializer["must_change_password"],
+				"username": user_serializer["username"],
+				"update_user_must_change_password": 1,
+			}
 		pretty_print_json(user_serializer)
 		return Response(user_serializer, status=status.HTTP_200_OK)
 
@@ -204,18 +242,25 @@ def check_email(request):
 def get_school_code_link(request, code_type):
 	user = request.user
 	user_id = user.id
+	school = getattr(user, "school", None)
+	if not school:
+		print("Oopsy! no school is associated with this account")
+		return Response({"Oopsy! no school is associated with this account"}, status=status.HTTP_400_BAD_REQUEST)
 	print(f'user: {user}')
 	print(f'user_id: {user_id}')
 	print(f'code_type: {code_type}')
+	print(f'user school: {school.name} ({school.acronym})')
 	if user.is_superuser:
-		esb_code = generate_esb_code(user_id)
+		esb_code = generate_esb_code(school_id=school.id)
 	elif user.role == "head" or user.role == "admin":
-		esb_code = generate_esb_code(user_id, code_type=code_type)
+		esb_code = generate_esb_code(school_id=school.id, code_type=code_type)
 	else:
 		print({"error": "You do not have permission for this request."})
 		return Response({"error": "You do not have permission for this request."},
 							status=status.HTTP_400_BAD_REQUEST)
-	code = ValidCode.objects.create(valid_code=esb_code)
+	code = ValidCode.objects.create(
+		valid_code=esb_code,
+	)
 	print(f'esb_code created: {code.valid_code}')
 	return Response({"esb_code": esb_code}, status=status.HTTP_200_OK)
 
