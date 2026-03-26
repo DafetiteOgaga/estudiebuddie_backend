@@ -22,6 +22,70 @@ from school.models import ScrambleSession
 # # Ensure /public folder exists
 # PUBLIC_DIR = os.path.join(settings.BASE_DIR, 'public')
 # os.makedirs(PUBLIC_DIR, exist_ok=True)
+
+get_abbr_object = {
+	"subject_abbr": {
+		"english-language": "ENG",
+		"mathematics": "MTH",
+		"civic-education": "CVE",
+		"basic-science": "BSC",
+		"social-studies": "SOS",
+		"crs": "CRS",
+		"irs": "IRS",
+		"history": "HIS",
+		"cultural-&-creative-arts": "CCA",
+		"computer-studies": "CST",
+		"home-economics": "HME",
+		"one-nigerian-language": "ONL",
+		"integrated-science": "INS",
+		"physical-&-health-education": "PHE",
+		"digital-technologies": "DGT",
+		"crs-/-irs": "CRI",
+		"nigerian-history": "NHS",
+		"social-&-citizenship-studies": "SCS",
+		"business-studies": "BST",
+		"french-studies": "FRN",
+		"arabic-studies": "ARB",
+		"biology": "BIO",
+		"chemistry": "CHM",
+		"physics": "PHY",
+		"further-mathematics": "FMTH",
+		"agricultural-science": "AGR",
+		"technical-drawing": "TD",
+		"geography": "GEO",
+		"computer-studies-/-ict": "ICT",
+		"physical-/-health-education": "PHE",
+		"foods-&-nutrition-/-home-economics": "FNH",
+		"literature-in-english": "LIT",
+		"government": "GOV",
+		"french-/-other-foreign-languages": "FOL",
+		"nigerian-language(s)": "NLA",
+		"visual-/-fine-arts": "VFA",
+		"music": "MUS",
+		"economics": "ECO",
+		"commerce": "COM",
+		"financial-accounting": "FAC",
+		"marketing": "MKT",
+		"accounting": "ACC",
+		"office-practice": "OFP",
+		"bookkeeping": "BKP",
+		"data-processing-/-computer-studies": "DPC",
+	},
+	"term_abbr": {
+		"first": "1st",
+		"second": "2nd",
+		"third": "3rd",
+	}
+}
+def get_abbr(category, value):
+	print(f'value: {value}')
+	if not value:
+		return value
+	return get_abbr_object[category].get(
+		value.strip().lower(),
+		value
+	)
+
 def get_shuffle_record(db_category):
 	print('checking ')
 	if db_category:
@@ -405,9 +469,14 @@ def Randomize(data, multiple=False, db_category=None):
 		generated_term = clean_term(data.get('term', None))
 
 		# Combine to form variantId
-		variant_id = f"{subject}_{generated_term}_{get_unique_id()}"
+		unique_time = get_unique_id()
+		variant_id = f"{subject}_{generated_term}_{unique_time}"
+		subject_abbr = get_abbr("subject_abbr", subject)
+		term_abbr = get_abbr("term_abbr", generated_term.split("-")[0])
+		_day, _time, _str = unique_time.split("_")
+		exam_id = f"{subject_abbr}_{term_abbr}_{_time}_{_str}"
+		print(f'Generated Exam ID: {exam_id}')
 		print(f"Generated variant ID: {variant_id}")
-		# pretty_print_json(variant_id)
 
 		# Create directories and files names
 		zip_filename = f"estudiebuddie_{variant_id}.zip"
@@ -453,7 +522,7 @@ def Randomize(data, multiple=False, db_category=None):
 					"option_orders": {}
 				}
 			answer_key = [
-				f"variant: {variant_id}",
+				f"variant: {exam_id}",
 				f"Type: {type_code}",
 				""
 			]
@@ -498,7 +567,7 @@ def Randomize(data, multiple=False, db_category=None):
 				f"{data['term'].title()} Term",
 				f"Duration: {duration_str}",
 				f"Instruction: {data['instruction'].title()}",
-				f"variant: {variant_id}",
+				f"variant: {exam_id}",
 				f"Type: {type_code}",
 				""
 			]
