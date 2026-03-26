@@ -303,13 +303,19 @@ def remember_sessions(request, detailed_resp):
 
 		detailed_data = ScrambleSessionReadSerializer(session).data
 		# detailed_data = serializer.data
-		if "questions[0][correct_answer]" in detailed_data["scramble_session_data"].keys():
+		if "questions[0][correct_answer]" in detailed_data["scramble_session_data"].keys() or \
+			"postQuestions[0][correct_answer]" in detailed_data["scramble_session_data"].keys():
 			print('being processed')
 			detailed_data["scramble_session_data"] = reconstruct_scramble_payload(detailed_data["scramble_session_data"])
 
 		# detailed_data["scramble_session_data"] = reconstruct_scramble_payload(
 		# 	detailed_data["scramble_session_data"]
 		# )
+		if "postQuestions" in detailed_data["scramble_session_data"].keys():
+			print('yeah, it has postQuestions and not questions')
+			print('renaming postQuestions to questions')
+			detailed_data["scramble_session_data"]["questions"] = detailed_data["scramble_session_data"]["postQuestions"]
+			detailed_data["scramble_session_data"].pop("postQuestions")
 		print('detailed_data:')
 		pretty_print_json(detailed_data)
 
@@ -333,7 +339,7 @@ def remember_sessions(request, detailed_resp):
 		# print('session start')
 		# pretty_print_json(session)
 		# print('session end')
-		new_form_questions = session["scramble_session_data"].get("questions", None)
+		new_form_questions = session["scramble_session_data"].get("questions") or session["scramble_session_data"].get("postQuestions") or None
 
 		# remove reconstruct_scramble_payload() now
 		reconstructed = reconstruct_scramble_payload(
@@ -345,9 +351,13 @@ def remember_sessions(request, detailed_resp):
 		pretty_print_json(reconstructed)
 		# session["scramble_session_data"] = reconstructed
 
-		questions = reconstructed.get("questions", [])
-		# print(f'questions:')
-		# pretty_print_json(questions)
+		questions = reconstructed.get("questions") or reconstructed.get("postQuestions") or []
+		print(f'new_form_questions: {bool(new_form_questions)}')
+		print(f'questions: {bool(questions)}')
+		if questions == [] and new_form_questions:
+			questions = new_form_questions
+		print(f'questions:')
+		pretty_print_json(questions)
 
 		list_of_data.append({
 			"id": session.get("id"),
@@ -355,7 +365,7 @@ def remember_sessions(request, detailed_resp):
 			"class": reconstructed.get("class"),
 			"subject": reconstructed.get("subject"),
 			"term": reconstructed.get("term"),
-			"questions": len(new_form_questions or questions),
+			"questions": len(questions),
 		})
 	print('whats being returned:')
 	pretty_print_json(list_of_data)
