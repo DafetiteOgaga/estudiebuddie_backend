@@ -72,9 +72,12 @@ get_abbr_object = {
 		"data-processing-/-computer-studies": "DPC",
 	},
 	"term_abbr": {
-		"first": "1st",
-		"second": "2nd",
-		"third": "3rd",
+		"first": "1T",
+		"second": "2T",
+		"third": "3T",
+		"1st": "1T",
+		"2nd": "2T",
+		"3rd": "3T",
 	}
 }
 def get_abbr(category, value):
@@ -85,6 +88,15 @@ def get_abbr(category, value):
 		value.strip().lower(),
 		value
 	)
+
+def remove_curly_braces(math_line):
+    if math_line.startswith("{") and math_line.endswith("}"):
+        print(f'original math line: {math_line}')
+        math_line = math_line[1:-1]
+        print(f'curly removed: {math_line}')
+        return remove_curly_braces(math_line) # recursive
+    print(f'no_curly: {math_line}')
+    return math_line  # base case
 
 def get_shuffle_record(db_category):
 	print('checking ')
@@ -331,10 +343,37 @@ def save_docx(
 	cols.set(qn('w:space'), '720')
 	sectPr.append(cols)
 
+	options = []
 	# --- Add question body content (flows across columns & pages)
 	for para in paragraphs[body_start_index:]:
 		# print(f'para: {para}')
 		# Detect image marker
+		if re.match(r'^A\.\s', para):
+			options = [para]
+			continue
+
+		if re.match(r'^[B-D]\.\s', para):
+			options.append(para)
+			if len(options) < 4:
+				continue
+			# All 4 collected — write as one tab-separated line
+			p = doc.add_paragraph()
+			p.add_run('\t'.join(options))
+			p.paragraph_format.space_before = Pt(0)
+			p.paragraph_format.space_after = Pt(2)
+			p.paragraph_format.line_spacing_rule = WD_LINE_SPACING.SINGLE
+			print(f'options: {options}')
+
+			tabs = p.paragraph_format.tab_stops
+			tabs.clear_all()
+			tabs.add_tab_stop(Inches(0.4))
+			tabs.add_tab_stop(Inches(0.8))
+			tabs.add_tab_stop(Inches(1.2))
+			tabs.add_tab_stop(Inches(1.6))
+
+			options = []
+			continue
+
 		if para.startswith("__IMAGE__:"):
 			print(f'__IMAGE__')
 			q_index = int(para.split(":")[1])
@@ -377,40 +416,35 @@ def save_docx(
 			# print(f'omml: {omml}')
 
 			math_paragraph._p.append(omml)
-			# run = math_paragraph.add_run()   # create a run
-			# if omml.tag.endswith("oMathPara"):
-			# 	omath = omml.find(".//{http://schemas.openxmlformats.org/officeDocument/2006/math}oMath")
-			# 	if omath is not None:
-			# 		run._r.append(omath)
-			# else:
-			# 	run._r.append(omml)
 
 		else:
 			p = doc.add_paragraph(para)
-			# p.runs[0].font.size = Pt(12)
-		# normal text
-		# p = doc.add_paragraph(para)
-		# p = doc.add_paragraph()
-		# if normal_text:
-		# 	p.add_run(normal_text + " ")
-		# if latex:
-		# 	mathml = convert(latex)
-		# 	omml = mathml_to_omml(mathml)
 
-		# 	p._p.append(omml)
 		p.style.font.size = Pt(12)
 
-		# # if math
-		# # normal text
-		# p = doc.add_paragraph(para)
-		# p.style.font.size = Pt(12)
-
 		# Detect options: A. B. C. D.
-		if re.match(r'^[A-D]\.\s', para):
-			p.paragraph_format.space_before = Pt(0)
-			p.paragraph_format.space_after = Pt(2)
-			p.paragraph_format.line_spacing = 0.5
-			p.paragraph_format.line_spacing_rule = WD_LINE_SPACING.SINGLE
+		# if re.match(r'^[A-D]\.\s', para):
+		# 	p.paragraph_format.space_before = Pt(0)
+		# 	p.paragraph_format.space_after = Pt(2)
+		# 	p.paragraph_format.line_spacing = 0.5
+		# 	p.paragraph_format.line_spacing_rule = WD_LINE_SPACING.SINGLE
+		# Collect options A-D into one horizontal line
+		# if re.match(r'^A\.\s', para):
+		# 	options = [para]
+		# 	continue
+
+		# if re.match(r'^[B-D]\.\s', para):
+		# 	options.append(para)
+		# 	if len(options) < 4:
+		# 		continue
+		# 	# All 4 collected — write as one tab-separated line
+		# 	p = doc.add_paragraph()
+		# 	p.add_run('\t'.join(options))
+		# 	p.paragraph_format.space_before = Pt(0)
+		# 	p.paragraph_format.space_after = Pt(2)
+		# 	p.paragraph_format.line_spacing_rule = WD_LINE_SPACING.SINGLE
+		# 	options = []
+		# 	continue
 
 	# ============================
 	# SECTION 3 — LAST PAGE FOOTER (OPTIONAL)
@@ -665,10 +699,11 @@ def Randomize(data, multiple=False, db_category=None):
 
 				math_line = extracted_full_questions_with_types.get("math", None)
 				if math_line:
-					if math_line.startswith("{") and math_line.endswith("}"):
-						print(f'original math line: {math_line}')
-						math_line = math_line[1:-1]
-						print(f'no_curly: {math_line}')
+					# if math_line.startswith("{") and math_line.endswith("}"):
+					# 	print(f'original math line: {math_line}')
+					# 	math_line = math_line[1:-1]
+					# 	print(f'no_curly: {math_line}')
+					math_line = remove_curly_braces(math_line)
 
 					print(f'adding math line: {math_line}')
 					question_lines.append(f"{''.rjust(2, ' ')} {math_line}")
