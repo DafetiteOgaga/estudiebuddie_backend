@@ -569,7 +569,7 @@ def Randomize(data, multiple=False, db_category=None):
 			# Prepare header here
 			duration = data['duration']
 			try:
-				# print(f"Processing duration: {duration}")
+				print(f"Processing duration: {duration}")
 				num = float(duration)
 				# print(f"Converted duration to float: {num}")
 				if num > 1:
