@@ -209,19 +209,19 @@ def update_user(request):
 		pretty_print_json(user_serializer)
 		return Response(user_serializer, status=status.HTTP_200_OK)
 
-@api_view(['GET'])
-@permission_classes([AllowAny])
-def check_username(request):
-	# Access query parameter
-	username = request.GET.get('username') # ?username=johndoe
-	print(f'username: {username}')
+# @api_view(['GET'])
+# @permission_classes([AllowAny])
+# def check_username(request):
+# 	# Access query parameter
+# 	username = request.GET.get('username') # ?username=johndoe
+# 	print(f'username: {username}')
 
-	response_data = "available"
-	if User.objects.filter(username=username).exists():
-		response_data = "not_available"
-	print(f'response_data: {response_data}')
+# 	response_data = "available"
+# 	if User.objects.filter(username=username).exists():
+# 		response_data = "not_available"
+# 	print(f'response_data: {response_data}')
 
-	return Response(response_data, status=status.HTTP_200_OK)
+# 	return Response(response_data, status=status.HTTP_200_OK)
 
 @api_view(['GET'])
 @permission_classes([AllowAny])

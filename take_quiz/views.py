@@ -592,7 +592,7 @@ def take_quiz(request):
 		email = payload.get("email", None)
 		number_of_questions = int(payload.get("noOfQs", 60))
 		duration = payload.get("duration")
-		name = payload.get("name")
+		# name = payload.get("name")
 
 		# print(f'type: {type_category}')
 		# print(f'class: {class_category}')
@@ -656,7 +656,7 @@ def take_quiz(request):
 		with transaction.atomic():
 			quiz_session = QuizSession.objects.create(
 				email=email,
-				name=name,
+				# name=name,
 				duration=duration,
 				user=user if authenticated else None
 			)

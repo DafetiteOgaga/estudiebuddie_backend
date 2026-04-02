@@ -6,7 +6,7 @@ from docx import Document
 from docx.shared import Pt
 from docx.oxml import OxmlElement
 from docx.oxml.ns import qn
-from docx.oxml.shared import OxmlElement, qn
+# from docx.oxml.shared import OxmlElement, qn
 from docx.enum.text import WD_ALIGN_PARAGRAPH, WD_LINE_SPACING
 from docx.enum.section import WD_SECTION
 from docx.shared import Inches
@@ -168,6 +168,62 @@ def shuffle_array(arr, return_order=False, order=None):
 
 def generate_alphabets(n):
 	return [chr(65 + i) for i in range(n)]  # A, B, C, D...
+
+def normalize_children(children):
+    if isinstance(children, dict):
+        # convert { "0": [...], "1": [...] } → flat list
+        result = []
+        for key in sorted(children.keys(), key=int):
+            result.extend(children[key])
+        return result
+    return children or []
+
+def to_alphabet(n):
+    return chr(97 + n)
+
+def to_roman(n):
+    romans = ["i","ii","iii","iv","v","vi","vii","viii","ix","x"]
+    return romans[n] if n < len(romans) else str(n)
+
+def get_label(index, depth):
+    styles = ["numeric", "alphabet", "roman"]
+    style = styles[depth % len(styles)]
+
+    if style == "numeric":
+        return str(index + 1)
+    elif style == "alphabet":
+        return to_alphabet(index)
+    elif style == "roman":
+        return to_roman(index)
+
+    return str(index + 1)
+
+def get_full_label(path, index, depth):
+    current = get_label(index, depth)
+    return ".".join(path + [current])
+
+def build_theory_lines(theory_tree):
+    lines = []
+
+    def walk(nodes, depth=0, path=None):
+        if path is None:
+            path = []
+
+        nodes = normalize_children(nodes)
+
+        for index, node in enumerate(nodes):
+            label = get_full_label(path, index, depth)
+
+            # Add question line
+            lines.append(f"{label} {node.get('text', '')}")
+
+            children = normalize_children(node.get("children"))
+
+            if children:
+                walk(children, depth + 1, path + [get_label(index, depth)])
+
+    walk(theory_tree)
+    return lines
 
 def save_docx(
 	paragraphs,
@@ -366,10 +422,13 @@ def save_docx(
 
 			tabs = p.paragraph_format.tab_stops
 			tabs.clear_all()
-			tabs.add_tab_stop(Inches(0.4))
-			tabs.add_tab_stop(Inches(0.8))
-			tabs.add_tab_stop(Inches(1.2))
-			tabs.add_tab_stop(Inches(1.6))
+			# tabs.add_tab_stop(Inches(0.4))
+			# tabs.add_tab_stop(Inches(0.8))
+			# tabs.add_tab_stop(Inches(1.2))
+			# tabs.add_tab_stop(Inches(1.6))
+			base = 0.5
+			for i in range(4):
+				tabs.add_tab_stop(Inches(base * (i + 1)))
 
 			options = []
 			continue
@@ -501,6 +560,9 @@ def Randomize(data, multiple=False, db_category=None):
 		# get subject
 		subject = data['subject'].lower()
 		generated_term = clean_term(data.get('term', None))
+		theory_questions = data.get("theory", None)
+		print(f'theory_questions:')
+		pretty_print_json(theory_questions)
 
 		# Combine to form variantId
 		unique_time = get_unique_id()
@@ -784,6 +846,22 @@ def Randomize(data, multiple=False, db_category=None):
 				# 	image_map[i] = extracted_question_with_image["image"]
 
 
+			if theory_questions:
+				print("Processing THEORY questions...")
+
+				# normalize root
+				theory_tree = []
+				for key in sorted(theory_questions.keys(), key=int):
+					theory_tree.extend(theory_questions[key])
+
+				theory_lines = build_theory_lines(theory_tree)
+
+				# Add spacing before theory section
+				question_lines.append("")
+				question_lines.append("THEORY")
+				question_lines.append("")
+
+				question_lines.extend(theory_lines)
 			# print('extracted_full_questions_with_types:')
 			# pretty_print_json(extracted_full_questions_with_types)
 			save_docx(
