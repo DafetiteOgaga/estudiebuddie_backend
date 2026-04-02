@@ -82,7 +82,7 @@ def generate_exam_bundle(request):
 		parsed_data = parse_nested_formdata(post_payload, request.FILES)
 		print(f'parsed_data:')
 		pretty_print_json(parsed_data)
-		# return Response({"success": "Success", "downloadLink": "file_url"})
+		# return Response({"success": "Success", "downloadLink": "file_url"}, status=status.HTTP_400_BAD_REQUEST)
 		db_category = {
 			"teacher_id": user.id,
 			"school_id": school.id,
