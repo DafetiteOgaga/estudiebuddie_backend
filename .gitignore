@@ -31,3 +31,4 @@ shufflequestions/migrations/0*
 school/migrations/__pycache__
 school/__pycache__
 school/migrations/0*
+.env

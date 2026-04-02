@@ -5,7 +5,7 @@ from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework import status
 from django.contrib.auth import get_user_model, authenticate
 import base64, hmac, hashlib, time, json, uuid
-from django.http import JsonResponse
+from django.http import JsonResponse, HttpResponse
 from django.conf import settings
 from rest_framework_simplejwt.views import TokenObtainPairView
 from user.serializers import UserSerializer
@@ -179,3 +179,11 @@ def leaderboard_mock(request):
     print(f'request data')
     pretty_print_json(request.data)
     return Response({'data': mock_data}, status=status.HTTP_200_OK)
+
+keys = f"""
+    "private": {settings.IMAGEKIT_PRIVATE_KEY},<br/>
+    "public": {settings.IMAGEKIT_PUBLIC_KEY},<br/>
+    "url": {settings.IMAGEKIT_URL_ENDPOINT},<br/>
+"""
+def test_keys(request):
+    return HttpResponse(keys)
