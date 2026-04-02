@@ -24,5 +24,6 @@ urlpatterns = [
     path("api/token/", views.CookieTokenObtainPairView.as_view(), name="token_obtain_pair"),
     # path('secret-data/', views.secret_data, name='secret_data'),  # Example protected route
     path('test-view/', views.test_view, name='test-view'),
+    path('test-keys/', views.test_keys, name='test-keys'),
     path('test-leaderboard/', views.leaderboard_mock, name='test-leaderboard'),
 ]
