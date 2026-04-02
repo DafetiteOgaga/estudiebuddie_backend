@@ -351,13 +351,17 @@ def remember_sessions(request, detailed_resp):
 		pretty_print_json(reconstructed)
 		# session["scramble_session_data"] = reconstructed
 
-		questions = reconstructed.get("questions") or reconstructed.get("postQuestions") or []
+		objective_questions = reconstructed.get("questions") or reconstructed.get("postQuestions") or []
+		theory_questions = reconstructed.get("theory", None)
 		print(f'new_form_questions: {bool(new_form_questions)}')
-		print(f'questions: {bool(questions)}')
-		if questions == [] and new_form_questions:
-			questions = new_form_questions
-		print(f'questions:')
-		pretty_print_json(questions)
+		print(f'objective_questions: {bool(objective_questions)}')
+		if objective_questions == [] and new_form_questions:
+			print('using new_form_questions')
+			objective_questions = new_form_questions
+		print(f'objective_questions:')
+		pretty_print_json(objective_questions)
+		print(f'theory_questions:')
+		pretty_print_json(theory_questions)
 
 		list_of_data.append({
 			"id": session.get("id"),
@@ -365,7 +369,8 @@ def remember_sessions(request, detailed_resp):
 			"class": reconstructed.get("class"),
 			"subject": reconstructed.get("subject"),
 			"term": reconstructed.get("term"),
-			"questions": len(questions),
+			"objective_questions": len(objective_questions) if objective_questions else None,
+			"theory_questions": len(theory_questions) if theory_questions else None,
 		})
 	print('whats being returned:')
 	pretty_print_json(list_of_data)
