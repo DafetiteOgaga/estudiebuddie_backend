@@ -194,7 +194,8 @@ def update_user(request):
 			print(user_not_exist)
 			return Response({"error": user_not_exist}, status=status.HTTP_400_BAD_REQUEST)
 		payload["must_change_password"] = False
-		payload["username"] = ""
+		if must_change_p:
+			payload["username"] = None
 		serializer = UserSerializer(user, data=payload, partial=True)
 		if serializer.is_valid():
 			print("Data that WILL be saved (not yet saved):")
@@ -212,7 +213,7 @@ def update_user(request):
 		if must_change_p:
 			user_serializer = {
 				"must_change_password": user_serializer["must_change_password"],
-				"username": user_serializer["username"],
+				"username": "",
 				"update_user_must_change_password": 1,
 			}
 		pretty_print_json(user_serializer)
