@@ -196,11 +196,6 @@ CSRF_TRUSTED_ORIGINS = [
     'https://estudiebuddie-frontend.pages.dev',
 ]
 
-# response = requests.get("https://dafetiteapiendpoint.pythonanywhere.com/get-imagekit-apis/")
-# data = response.json()
-# IMAGEKIT_PRIVATE_KEY = data.get("IMAGEKIT_PRIVATE_KEY")  # extract the private key
-# IMAGEKIT_PUBLIC_KEY = data.get("IMAGEKIT_PUBLIC_KEY")  # extract the public key
-# IMAGEKIT_URL_ENDPOINT = data.get("IMAGEKIT_URL_ENDPOINT")  # extract the endpoint
 IMAGEKIT_PRIVATE_KEY = os.getenv("IMAGEKIT_PRIVATE_KEY")
 if not IMAGEKIT_PRIVATE_KEY:
     raise Exception("IMAGEKIT_PRIVATE_KEY is missing")
