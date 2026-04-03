@@ -243,6 +243,8 @@ def get_school_code_link(request, code_type):
 	user = request.user
 	user_id = user.id
 	school = getattr(user, "school", None)
+	print(f'user: {user}')
+	print(f'school: {school}')
 	if not school:
 		print("Oopsy! no school is associated with this account")
 		return Response({"Oopsy! no school is associated with this account"}, status=status.HTTP_400_BAD_REQUEST)
