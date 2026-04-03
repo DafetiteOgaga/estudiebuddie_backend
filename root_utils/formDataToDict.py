@@ -152,6 +152,7 @@ def generate_esb_code(school_id, code_type='school'):
     """
     from school.models import School  # local import to avoid circular imports
 
+    print(f'code_type: {code_type}')
     PREFIX = "ESB"
     LENGTH = 6  # adjustable (6 = ~2.1B combinations)
     if code_type == "admin" or code_type == "teacher":
