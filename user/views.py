@@ -22,6 +22,7 @@ def create_user(request):
 		esb_code = payload.get("esb_code", None)
 		school = payload.get("school", None)
 		acronym = payload.get("acronym", None)
+		user_role = payload.get("role", None)
 		password_provided = payload.get("password", None)
 		print('payload:')
 		pretty_print_json(payload)
@@ -32,7 +33,7 @@ def create_user(request):
 			with transaction.atomic():
 				if esb_code:
 					print('got code')
-					print(f'user is: {payload["role"]}')
+					print(f'user is: {user_role}')
 
 					validated_code = ValidCode.objects.filter(valid_code=esb_code).first()
 					print(f'validated_code: {validated_code}')
@@ -50,6 +51,14 @@ def create_user(request):
 							name=school.strip().lower(),
 							acronym=acronym.upper(),
 						)
+						print(f'school_to_use: {school_to_use}')
+						if not school_to_use and user_role == "head":
+							print(f'creating school: {school}')
+							school_to_use = School.objects.create(
+								code=validated_code.valid_code,
+								name=school.strip().lower(),
+								acronym=acronym.strip().upper(),
+							)
 					else:
 						validated_code_str = validated_code.valid_code
 						i_index = validated_code_str.rfind("l")
