@@ -257,13 +257,15 @@ def get_school_code_link(request, code_type):
 	if not school:
 		print("Oopsy! no school is associated with this account")
 		return Response({"Oopsy! no school is associated with this account"}, status=status.HTTP_400_BAD_REQUEST)
-	print(f'user: {user}')
+	# print(f'user: {user}')
 	print(f'user_id: {user_id}')
 	print(f'code_type: {code_type}')
 	print(f'user school: {school.name} ({school.acronym})')
-	if user.is_superuser:
+	if user.is_superuser and code_type == "school_code":
+		print('is superuser')
 		esb_code = generate_esb_code(school_id=school.id)
 	elif user.role == "head" or user.role == "admin":
+		print(f'not superuser and code_type: {code_type}')
 		esb_code = generate_esb_code(school_id=school.id, code_type=code_type)
 	else:
 		print({"error": "You do not have permission for this request."})
