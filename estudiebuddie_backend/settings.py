@@ -197,14 +197,14 @@ CSRF_TRUSTED_ORIGINS = [
 ]
 
 IMAGEKIT_PRIVATE_KEY = os.getenv("IMAGEKIT_PRIVATE_KEY")
-if not IMAGEKIT_PRIVATE_KEY:
-    raise Exception("IMAGEKIT_PRIVATE_KEY is missing")
+# if not IMAGEKIT_PRIVATE_KEY:
+#     raise Exception("IMAGEKIT_PRIVATE_KEY is missing")
 IMAGEKIT_PUBLIC_KEY = os.getenv("IMAGEKIT_PUBLIC_KEY")
-if not IMAGEKIT_PUBLIC_KEY:
-    raise Exception("IMAGEKIT_PUBLIC_KEY is missing")
+# if not IMAGEKIT_PUBLIC_KEY:
+#     raise Exception("IMAGEKIT_PUBLIC_KEY is missing")
 IMAGEKIT_URL_ENDPOINT = os.getenv("IMAGEKIT_URL_ENDPOINT")
-if not IMAGEKIT_URL_ENDPOINT:
-    raise Exception("IMAGEKIT_URL_ENDPOINT is missing")
+# if not IMAGEKIT_URL_ENDPOINT:
+#     raise Exception("IMAGEKIT_URL_ENDPOINT is missing")
 
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": ( # tells DRF how to handle authentication (i.e use JWTAuthentication)
