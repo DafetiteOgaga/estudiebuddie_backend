@@ -40,7 +40,7 @@ class User(AbstractUser):
 	gender = models.CharField(max_length=20, null=True, blank=True)
 	role = models.CharField(max_length=20, null=True, blank=True)
 	about = models.TextField(null=True, blank=True)
-	username = models.CharField(max_length=30, null=True, blank=True)
+	username = models.CharField(max_length=30, null=True, blank=True, unique=False)
 	# password = models.CharField(max_length=128, null=True, blank=True)
 	contributor = models.BooleanField(default=False)
 	is_deleted = models.BooleanField(default=False)
@@ -116,6 +116,6 @@ class User(AbstractUser):
 			if value:
 				setattr(self, field_name, value.lower())
 
-		if self.username == None:
-			self.username = ""
+		if self.username == "":
+			self.username = None
 		super().save(*args, **kwargs)
