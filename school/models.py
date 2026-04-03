@@ -38,8 +38,10 @@ class School(models.Model):
 	def save(self, *args, **kwargs):
 		if self.acronym is not None:
 			self.acronym = self.acronym.upper()
+			print(f'acronym: {self.acronym}')
 		if self.name is not None:
-			self.name = self.acronym.strip().lower()
+			self.name = self.name.strip().lower()
+			print(f'name: {self.name}')
 		super().save(*args, **kwargs)
 
 	def __str__(self):
