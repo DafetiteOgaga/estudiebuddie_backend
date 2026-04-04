@@ -186,6 +186,9 @@ def remember_sessions(request, detailed_resp):
 		cleaned_ids = raw_ids.split(',')
 		cleaned_ids = [int(i) for i in cleaned_ids]
 		print(f'cleaned_ids: {cleaned_ids}')
+		# return Response({
+		# 		"success": "good"},
+		# 		status=status.HTTP_400_BAD_REQUEST)
 		with transaction.atomic():
 			ScrambleSession.objects.filter(
 				teacher=teacher,
