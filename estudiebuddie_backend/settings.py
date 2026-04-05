@@ -41,7 +41,9 @@ DATABASE_URL = os.getenv("DATABASE_URL")
 SECRET_KEY = 'django-insecure-m#yo8x92w6537bjl9v2z1iqqn==drfoqzo%tyi@=fn(ci!+h+q'
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+
+# DEBUG = True
+DEBUG = False if DATABASE_URL else True
 
 ALLOWED_HOSTS = [
     'localhost',
