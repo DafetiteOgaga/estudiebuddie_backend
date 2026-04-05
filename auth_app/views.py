@@ -4,12 +4,13 @@ from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework import status
 from django.contrib.auth import get_user_model, authenticate
-import base64, hmac, hashlib, time, json, uuid
+import base64, hmac, hashlib, time, json, uuid, logging
 from django.http import JsonResponse, HttpResponse
 from django.conf import settings
-from rest_framework_simplejwt.views import TokenObtainPairView
+from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 from user.serializers import UserSerializer
 from hooks.pretty_print import pretty_print_json
+logger = logging.getLogger(__name__)
 
 # @permission_classes([AllowAny])
 # @permission_classes([IsAuthenticated])
@@ -107,10 +108,10 @@ mock_data = {
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def imagekit_auth(request):
-    print("Generating ImageKit auth token (imagekit_auth)...")
+    logger.info("Generating ImageKit auth token (imagekit_auth)...")
     token = uuid.uuid4().hex # str(int(time.time()))
     expire = str(int(time.time()) + 2400)  # 40 minutes (more reasonable)
-    
+
     # Fix: The signature should be generated from token + expire only
     # NOT including the private key in the hash
     signature = hmac.new(
@@ -118,42 +119,59 @@ def imagekit_auth(request):
         f"{token}{expire}".encode('utf-8'),
         hashlib.sha1
     ).hexdigest()
-    
-    print(f"Generated ImageKit auth")
+
+    logger.info(f"Generated ImageKit auth")
     pretty_print_json({f"token": token, f"expire": expire, f"signature": signature})
-    
+
     return JsonResponse({
         "token": token,
         "expire": int(expire),  # Should be integer, not string
         "signature": signature
     }, status=status.HTTP_200_OK)
 
-@permission_classes([AllowAny])
+# @permission_classes([AllowAny])
+class CustomTokenRefreshView(TokenRefreshView):
+    permission_classes = [AllowAny]
+    def post(self, request, *args, **kwargs):
+        logger.info("REFRESH ENDPOINT HIT")  # log added
+
+        # optional: inspect incoming data
+        logger.info("Request data:", request.data)
+
+        response = super().post(request, *args, **kwargs)
+
+        # optional: log response
+        logger.info("Refresh response:", response.data)
+
+        return response
+
+# @permission_classes([AllowAny])
 class CookieTokenObtainPairView(TokenObtainPairView):
+    permission_classes = [AllowAny]
     def post(self, request, *args, **kwargs):
         email = request.data.get("email")
         password = request.data.get("password")
-        print(f'email: {email}\npassword: {password}')
+        logger.info(f'email: {email}\npassword: {password}')
 
         # 1. Check if email was provided
         if not email or not password:
-            print("Email and password are required.")
+            logger.info("Email and password are required.")
             return Response({"error": "Email and password are required."}, status=status.HTTP_400_BAD_REQUEST)
 
         # 2. Check if user exists
         try:
             user = User.objects.get(email=email)
         except User.DoesNotExist:
-            print("No account found for this email.")
+            logger.info("No account found for this email.")
             return Response({"error": "No account found for this email."}, status=status.HTTP_404_NOT_FOUND)
 
         # 3. Authenticate user (checks password)
         user = authenticate(request, username=email, password=password)
-        print(f'authenticate user: {user}')
+        logger.info(f'authenticate user: {user}')
         if not user:
-            print("Incorrect password.")
+            logger.info("Incorrect password.")
             return Response({"error": "Incorrect password."}, status=status.HTTP_404_NOT_FOUND)
-        print('user authenticated...')
+        logger.info('user authenticated...')
 
         # 4. If authentication passes, use normal JWT process
         response = super().post(request, *args, **kwargs)
@@ -162,21 +180,26 @@ class CookieTokenObtainPairView(TokenObtainPairView):
         # add user info to response
         data["user"] = UserSerializer(user).data
 
-        print(f'response.data:')
+        logger.info(f'response.data:')
         pretty_print_json(data)
         return response
 
 @api_view(['GET', 'POST'])
 @permission_classes({AllowAny})
 def test_view(request):
-    print(f'request data')
+    logger.info(f'request data')
     pretty_print_json(request.data)
     return Response({'data': 'all good'}, status=status.HTTP_200_OK)
 
 @api_view(['GET'])
 @permission_classes([AllowAny])
 def leaderboard_mock(request):
-    print(f'request data')
+    # logger.debug("DEBUG: Refresh called")
+    logger.info("INFO: Refresh endpoint hit")
+    # logger.warning("WARNING: Example warning")
+    # logger.error("ERROR: Example error")
+    # logger.critical("CRITICAL: Example critical")
+    logger.info(f'request data')
     pretty_print_json(request.data)
     return Response({'data': mock_data}, status=status.HTTP_200_OK)
 
