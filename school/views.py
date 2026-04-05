@@ -8,9 +8,10 @@ from hooks.pretty_print import pretty_print_json
 from root_utils.formDataToDict import print_formdata_content, cleanup_old_zips, parse_nested_formdata
 from .models import ScrambleSession
 from .serializers import ScrambleSessionReadSerializer, ScrambleSessionWriteSerializer
-import re
+import re, logging
 from collections import defaultdict
 from django.db import transaction
+logger = logging.getLogger(__name__)
 
 # def reconstruct_scramble_payload(flat_data):
 # 	result = {}
@@ -158,12 +159,12 @@ def reconstruct_scramble_payload(flat_data):
 def remember_sessions(request, detailed_resp):
 	cleanup_old_zips()
 	qp = request.query_params
-	print(f'qp: {qp}')
+	logger.info(f'qp: {qp}')
 	d_all = qp.get("delete_all")
 	raw_ids = qp.get("allIDs")
-	print(f'd_all: {d_all}\nraw_ids: {raw_ids}')
+	logger.info(f'd_all: {d_all}\nraw_ids: {raw_ids}')
 	if d_all and not raw_ids:
-		print('nothing to delete')
+		logger.info('nothing to delete')
 		return Response({"error": "Nothing to delete."}, status=status.HTTP_400_BAD_REQUEST)
 	cleaned_ids = None
 
@@ -175,7 +176,7 @@ def remember_sessions(request, detailed_resp):
 	school = getattr(teacher, "school", None)
 	if not school:
 		return Response({"error": "school not found"}, status=status.HTTP_400_BAD_REQUEST)
-	print('school info:')
+	logger.info('school info:')
 	user_info = {
 		"teacher": teacher,
 		"school": school,
@@ -185,7 +186,7 @@ def remember_sessions(request, detailed_resp):
 	if d_all:
 		cleaned_ids = raw_ids.split(',')
 		cleaned_ids = [int(i) for i in cleaned_ids]
-		print(f'cleaned_ids: {cleaned_ids}')
+		logger.info(f'cleaned_ids: {cleaned_ids}')
 		# return Response({
 		# 		"success": "good"},
 		# 		status=status.HTTP_400_BAD_REQUEST)
@@ -208,8 +209,8 @@ def remember_sessions(request, detailed_resp):
 		session_class = scramble_session_data.get("class", None)
 		session_term = scramble_session_data.get("term", None)
 		session_subject = scramble_session_data.get("subject", None)
-		# print(f'saved_id: {saved_id}')
-		print(f'session_class: {session_class}\nsession_term: {session_term}\nsession_subject: {session_subject}')
+		# logger.info(f'saved_id: {saved_id}')
+		logger.info(f'session_class: {session_class}\nsession_term: {session_term}\nsession_subject: {session_subject}')
 		found_session_by_category = None
 		is_update = False
 
@@ -221,7 +222,7 @@ def remember_sessions(request, detailed_resp):
 		# 					{"error": "Invalid: Session cannot be saved"},
 		# 					status=status.HTTP_400_BAD_REQUEST
 		# 				)
-		# 	print('updating existing session')
+		# 	logger.info('updating existing session')
 		# 	session = ScrambleSession.objects.filter(
 		# 		id=saved_id,
 		# 		teacher=teacher,
@@ -245,7 +246,7 @@ def remember_sessions(request, detailed_resp):
 		# 	)
 		# 	is_update = True
 		# else:
-		print('checking session by category')
+		logger.info('checking session by category')
 		found_session_by_category = ScrambleSession.objects.filter(
 			teacher=teacher,
 			school=school,
@@ -255,8 +256,8 @@ def remember_sessions(request, detailed_resp):
 		).first()
 
 		if found_session_by_category:
-			print("found session by category")
-			print('updating existing session')
+			logger.info("found session by category")
+			logger.info('updating existing session')
 			post_serializer = ScrambleSessionWriteSerializer(
 				found_session_by_category,
 				data={
@@ -270,7 +271,7 @@ def remember_sessions(request, detailed_resp):
 			)
 			is_update = True
 		else:
-			print('creating new session')
+			logger.info('creating new session')
 			post_serializer = ScrambleSessionWriteSerializer(
 				data={
 					"scramble_session_data": scramble_session_data,
@@ -285,16 +286,16 @@ def remember_sessions(request, detailed_resp):
 		# is_update = saved_id is not None or found_session_by_category is not None
 		status_code = status.HTTP_200_OK if is_update else status.HTTP_201_CREATED
 		if post_serializer.is_valid():
-			print('serialized data is valid')
+			logger.info('serialized data is valid')
 			post_serializer.save()
-			print('serialized data saved:')
+			logger.info('serialized data saved:')
 			pretty_print_json(post_serializer)
 			response_text = "Progress updated" if is_update else "Progress saved"
-			print(response_text)
+			logger.info(response_text)
 			return Response({"success": response_text},
 								status=status_code)
 
-		print(f'post_serializer.errors: {post_serializer.errors}')
+		logger.info(f'post_serializer.errors: {post_serializer.errors}')
 		return Response({"error": "Could not save."}, status=status.HTTP_400_BAD_REQUEST)
 
 	if detailed_resp and detailed_resp.isdigit():
@@ -308,18 +309,18 @@ def remember_sessions(request, detailed_resp):
 		# detailed_data = serializer.data
 		if "questions[0][correct_answer]" in detailed_data["scramble_session_data"].keys() or \
 			"postQuestions[0][correct_answer]" in detailed_data["scramble_session_data"].keys():
-			print('being processed')
+			logger.info('being processed')
 			detailed_data["scramble_session_data"] = reconstruct_scramble_payload(detailed_data["scramble_session_data"])
 
 		# detailed_data["scramble_session_data"] = reconstruct_scramble_payload(
 		# 	detailed_data["scramble_session_data"]
 		# )
 		if "postQuestions" in detailed_data["scramble_session_data"].keys():
-			print('yeah, it has postQuestions and not questions')
-			print('renaming postQuestions to questions')
+			logger.info('yeah, it has postQuestions and not questions')
+			logger.info('renaming postQuestions to questions')
 			detailed_data["scramble_session_data"]["questions"] = detailed_data["scramble_session_data"]["postQuestions"]
 			detailed_data["scramble_session_data"].pop("postQuestions")
-		print('detailed_data:')
+		logger.info('detailed_data:')
 		pretty_print_json(detailed_data)
 
 		return Response(detailed_data, status=status.HTTP_200_OK)
@@ -328,42 +329,42 @@ def remember_sessions(request, detailed_resp):
 		teacher=teacher,
 		school=school
 	).order_by('-updated_at')
-	print('fetched saved sessions')
+	logger.info('fetched saved sessions')
 
 	get_session_serializer = ScrambleSessionReadSerializer(
 		sessions, many=True
 	).data
 
-	# print(f'get_session_serializer:')
+	# logger.info(f'get_session_serializer:')
 	# pretty_print_json(get_session_serializer)
 
 	list_of_data = []
 	for session in get_session_serializer:
-		# print('session start')
+		# logger.info('session start')
 		# pretty_print_json(session)
-		# print('session end')
+		# logger.info('session end')
 		new_form_questions = session["scramble_session_data"].get("questions") or session["scramble_session_data"].get("postQuestions") or None
 
 		# remove reconstruct_scramble_payload() now
 		reconstructed = reconstruct_scramble_payload(
 			session["scramble_session_data"]
 		)
-		# print(f'session question:')
+		# logger.info(f'session question:')
 		# pretty_print_json(session["scramble_session_data"]["questions"])
-		print(f'reconstructed:')
+		logger.info(f'reconstructed:')
 		pretty_print_json(reconstructed)
 		# session["scramble_session_data"] = reconstructed
 
 		objective_questions = reconstructed.get("questions") or reconstructed.get("postQuestions") or []
 		theory_questions = reconstructed.get("theory", None)
-		print(f'new_form_questions: {bool(new_form_questions)}')
-		print(f'objective_questions: {bool(objective_questions)}')
+		logger.info(f'new_form_questions: {bool(new_form_questions)}')
+		logger.info(f'objective_questions: {bool(objective_questions)}')
 		if objective_questions == [] and new_form_questions:
-			print('using new_form_questions')
+			logger.info('using new_form_questions')
 			objective_questions = new_form_questions
-		print(f'objective_questions:')
+		logger.info(f'objective_questions:')
 		pretty_print_json(objective_questions)
-		print(f'theory_questions:')
+		logger.info(f'theory_questions:')
 		pretty_print_json(theory_questions)
 
 		list_of_data.append({
@@ -375,6 +376,6 @@ def remember_sessions(request, detailed_resp):
 			"objective_questions": len(objective_questions) if objective_questions else None,
 			"theory_questions": len(theory_questions) if theory_questions else None,
 		})
-	print('whats being returned:')
+	logger.info('whats being returned:')
 	pretty_print_json(list_of_data)
 	return Response(list_of_data, status=status.HTTP_200_OK)
