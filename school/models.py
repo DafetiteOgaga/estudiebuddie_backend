@@ -1,4 +1,6 @@
 from django.db import models
+import logging
+logger = logging.getLogger(__name__)
 
 # Create your models here.
 class ScrambleSession(models.Model):
@@ -38,10 +40,10 @@ class School(models.Model):
 	def save(self, *args, **kwargs):
 		if self.acronym is not None:
 			self.acronym = self.acronym.upper()
-			print(f'acronym: {self.acronym}')
+			logger.info(f'acronym: {self.acronym}')
 		if self.name is not None:
 			self.name = self.name.strip().lower()
-			print(f'name: {self.name}')
+			logger.info(f'name: {self.name}')
 		super().save(*args, **kwargs)
 
 	def __str__(self):

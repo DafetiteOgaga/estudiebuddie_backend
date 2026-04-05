@@ -16,11 +16,12 @@ urlpatterns = [
 	path("imagekit-auth/", views.imagekit_auth, name="imagekit_auth"),
 	# path("products/", views.products, name="product_list_create"),
 	# path('api/token/', TokenObtainPairView.as_view(), name='token_obtain_pair'),  # login
-    path(
-        'api/token/refresh/',
-        TokenRefreshView.as_view(permission_classes=[AllowAny]),
-        name='token_refresh'
-	),  # refresh
+    # path(
+    #     'api/token/refresh/',
+    #     TokenRefreshView.as_view(permission_classes=[AllowAny]),
+    #     name='token_refresh'
+	# ),  # refresh
+    path("api/token/refresh/", views.CustomTokenRefreshView.as_view(), name="token_refresh"),
     path("api/token/", views.CookieTokenObtainPairView.as_view(), name="token_obtain_pair"),
     # path('secret-data/', views.secret_data, name='secret_data'),  # Example protected route
     path('test-view/', views.test_view, name='test-view'),

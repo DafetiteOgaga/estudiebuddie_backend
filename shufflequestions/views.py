@@ -13,13 +13,14 @@ from school.models import SubmitedQuestions, ScrambleSession
 from school.serializers import SubmittedQuestionsReadSerializer, SubmittedQuestionsWriteSerializer
 from school.serializers import ScrambleSessionWriteSerializer
 # from ../root_utils.formDataToDict import parse_nested_formdata
-import json
+import json, logging
 from django.db import transaction
 from django.db.models import Q
 from django.utils import timezone
+logger = logging.getLogger(__name__)
 
 def handle_shuffle_record(data):
-	print('checking for existing scramble')
+	logger.info('checking for existing scramble')
 
 	user = data["user"]
 	school = data["school"]
@@ -37,10 +38,10 @@ def handle_shuffle_record(data):
 		session_class=parsed_data["class"],
 		# "level": parsed_data["level"]
 	).first()
-	print(f'saved_question: {saved_question}')
+	logger.info(f'saved_question: {saved_question}')
 	if not saved_question:
 		if post_payload and request:
-			print('creating ScrambleSession')
+			logger.info('creating ScrambleSession')
 			saved_question = ScrambleSessionWriteSerializer(
 				data={
 					"scramble_session_data": post_payload,
@@ -51,19 +52,19 @@ def handle_shuffle_record(data):
 				context={'request': request}
 			)
 			if saved_question.is_valid():
-				print('saved_question is valid')
+				logger.info('saved_question is valid')
 				saved_question = saved_question.save()
-				print(saved_question)
-				print('created new session')
+				logger.info(saved_question)
+				logger.info('created new session')
 	else:
 		if post_payload and request:
 			saved_question.scramble_session_data = post_payload
-			print('updated session')
+			logger.info('updated session')
 	if shuffle_record:
-		print('ready to take shuffle_record!')
+		logger.info('ready to take shuffle_record!')
 		pretty_print_json(shuffle_record)
 		saved_question.shuffle_record = shuffle_record
-		print('shuffle record saved!')
+		logger.info('shuffle record saved!')
 	saved_question.save()
 
 # Create your views here.
@@ -72,15 +73,15 @@ def handle_shuffle_record(data):
 def generate_exam_bundle(request):
 	cleanup_old_zips()
 	user = request.user
-	print(f'user: {user}')
+	logger.info(f'user: {user}')
 	school = getattr(user, "school", None)
-	# print(f'school: {school}')
+	# logger.info(f'school: {school}')
 	if request.method == 'POST':
 		saved_question = None
 
 		post_payload = request.data
 		parsed_data = parse_nested_formdata(post_payload, request.FILES)
-		print(f'parsed_data:')
+		logger.info(f'parsed_data:')
 		pretty_print_json(parsed_data)
 		# return Response({"success": "Success", "downloadLink": "file_url"}, status=status.HTTP_400_BAD_REQUEST)
 		db_category = {
@@ -91,12 +92,12 @@ def generate_exam_bundle(request):
 			"session_class": parsed_data["class"],
 		}
 		file_url, shuffle_record = Randomize(parsed_data, db_category=db_category)
-		print("Generated file URL:", file_url)
-		print('free usage')
+		logger.info("Generated file URL:", file_url)
+		logger.info('free usage')
 
-		print(f'user: {user}')
-		print(f'school: {school}')
-		print(f'shuffle_record: {shuffle_record}')
+		logger.info(f'user: {user}')
+		logger.info(f'school: {school}')
+		logger.info(f'shuffle_record: {shuffle_record}')
 		if school:
 			handle_shuffle_record({
 				"user": user,
@@ -120,12 +121,12 @@ def get_links(request):
 	cleanup_old_zips()
 	if request.method == 'GET':
 		user = request.user
-		print(f'user: {user}')
+		logger.info(f'user: {user}')
 
 		links = ScrambleLinks.objects.filter(user=user).order_by('-created_at')[:5]
-		# print(f'links: {links}')
+		# logger.info(f'links: {links}')
 		serialized_links = ScrambleLinksSerializer(links, many=True).data
-		print(f'serialized_links:')
+		logger.info(f'serialized_links:')
 		pretty_print_json(serialized_links)
 		return Response(serialized_links, status=status.HTTP_200_OK)
 
@@ -136,18 +137,18 @@ def get_submitted(request):
 	user = request.user
 	school = user.school
 	qp = request.query_params
-	print(f'qp: {qp}')
+	logger.info(f'qp: {qp}')
 	teacher_id = qp.get("teacherID", None)
 	if teacher_id:
 		try:
 			teacher_id = int(teacher_id)
 		except:
-			print("Oopsy! Teacher/Admin not specified.")
+			logger.info("Oopsy! Teacher/Admin not specified.")
 			return Response({"error": "Oopsy! Teacher/Admin not specified."})
-	print(f'teacher_id: {teacher_id}')
-	print(f'user: {user}\nschool: {school}')
+	logger.info(f'teacher_id: {teacher_id}')
+	logger.info(f'user: {user}\nschool: {school}')
 	if user.role not in ["admin", "head"]:
-		print('you have no permision to view this')
+		logger.info('you have no permision to view this')
 		return Response({"error": "you do not have permission for this action."})
 	submitted_objs = SubmitedQuestions.objects.filter(
 		school=school,
@@ -156,7 +157,7 @@ def get_submitted(request):
 	serialized_objs = SubmittedQuestionsReadSerializer(
 		submitted_objs, many=True
 	).data
-	print('checked response:')
+	logger.info('checked response:')
 	pretty_print_json(serialized_objs)
 	return Response(serialized_objs, status=status.HTTP_200_OK)
 
@@ -165,19 +166,19 @@ def get_submitted(request):
 def generate_exam_bundle_for_school(request):
 	cleanup_old_zips()
 	qp = request.query_params
-	print(f'qp: {qp}')
+	logger.info(f'qp: {qp}')
 	d_all = qp.get("submit_all")
 	raw_ids = qp.get("allIDs")
-	print(f'd_all: {d_all}\nraw_ids: {raw_ids}')
+	logger.info(f'd_all: {d_all}\nraw_ids: {raw_ids}')
 	if d_all and not raw_ids:
-		print('nothing to delete')
+		logger.info('nothing to delete')
 		return Response({"error": "Nothing to delete."}, status=status.HTTP_400_BAD_REQUEST)
 	cleaned_ids = None
 
 	user = request.user
-	print(f'user: {user}')
+	logger.info(f'user: {user}')
 	school = getattr(user, "school", None)
-	# print(f'school: {school.name}')
+	# logger.info(f'school: {school.name}')
 	handle_shuffle_record_arg = {
 		"user": user,
 		"school": school,
@@ -192,12 +193,12 @@ def generate_exam_bundle_for_school(request):
 	if not school:
 		return Response({"error": "you do not have the authorization for this action."})
 
-	print(f'school: {school.name}')
+	logger.info(f'school: {school.name}')
 
 	if d_all:
 		cleaned_ids = raw_ids.split(',')
 		cleaned_ids = [int(i) for i in cleaned_ids]
-		print(f'cleaned_ids: {cleaned_ids}')
+		logger.info(f'cleaned_ids: {cleaned_ids}')
 		with transaction.atomic():
 			saved_questions = ScrambleSession.objects.filter(
 				teacher=user,
@@ -205,7 +206,7 @@ def generate_exam_bundle_for_school(request):
 				id__in=cleaned_ids
 			)
 
-			print(f'saved_questions: {saved_questions}')
+			logger.info(f'saved_questions: {saved_questions}')
 
 			saved_list = [
 				{
@@ -218,11 +219,11 @@ def generate_exam_bundle_for_school(request):
 				for obj in saved_questions
 			]
 
-			# print(f'saved_list: {saved_list}')
+			# logger.info(f'saved_list: {saved_list}')
 
 			query = Q()
 			for item in saved_list:
-				# print('item in saved list:')
+				# logger.info('item in saved list:')
 				# pretty_print_json(item)
 				query |= Q(
 					session_class=item["session_class"],
@@ -234,7 +235,7 @@ def generate_exam_bundle_for_school(request):
 
 			existing = SubmitedQuestions.objects.filter(query)
 
-			print(f'existing in submitted: {existing}')
+			logger.info(f'existing in submitted: {existing}')
 
 			# map existing by class/term/subject for quick lookup
 			existing_map = {
@@ -242,25 +243,25 @@ def generate_exam_bundle_for_school(request):
 				for obj in existing
 			}
 
-			print(f'existing_map: {existing_map}')
+			logger.info(f'existing_map: {existing_map}')
 
 			to_update = []
 			to_create = []
 
 			for item in saved_list:
-				print(f'item:')
+				logger.info(f'item:')
 				pretty_print_json(item)
 				key = (item["session_class"], item["session_term"], item["session_subject"])
 				if key in existing_map:
-					print(f'append to update list')
-					print(f'key: {key}')
+					logger.info(f'append to update list')
+					logger.info(f'key: {key}')
 					obj = existing_map[key]
 					obj.submitted_session_data = item["submitted_session_data"]
 					obj.submitted_session_data = item["submitted_session_data"]
 					obj.updated_at = timezone.now()
 					to_update.append(obj)
 				else:
-					print(f'append to create list')
+					logger.info(f'append to create list')
 					to_create.append(
 						SubmitedQuestions(
 							teacher=user,
@@ -273,11 +274,11 @@ def generate_exam_bundle_for_school(request):
 					)
 
 			if to_update:
-				print(f'updating: {to_update}')
+				logger.info(f'updating: {to_update}')
 				SubmitedQuestions.objects.bulk_update(to_update, ["submitted_session_data", "updated_at"])
 
 			if to_create:
-				print(f'creating: {to_create}')
+				logger.info(f'creating: {to_create}')
 				SubmitedQuestions.objects.bulk_create(to_create)
 
 			saved_questions.update(has_submitted=True, updated_at=timezone.now())
@@ -292,15 +293,15 @@ def generate_exam_bundle_for_school(request):
 		submitted_id = request.query_params.get("id")
 		if not submitted_id:
 			qp = request.query_params
-			print(f'qp: {qp}')
+			logger.info(f'qp: {qp}')
 			q_all = qp.get("all")
 			raw_ids = qp.get("allIDs")
-			print(f'q_all: {q_all}\nraw_ids: {raw_ids}')
+			logger.info(f'q_all: {q_all}\nraw_ids: {raw_ids}')
 			if q_all and not raw_ids:
-				print('nothing to download')
+				logger.info('nothing to download')
 				return Response({"error": "Nothing to download."}, status=status.HTTP_400_BAD_REQUEST)
 			cleaned_ids = raw_ids.split(',')
-			print(f'cleaned_ids: {cleaned_ids}')
+			logger.info(f'cleaned_ids: {cleaned_ids}')
 
 			many_payloads = []
 			shuffle_record_dict = {}
@@ -310,9 +311,9 @@ def generate_exam_bundle_for_school(request):
 							id=_id,
 							school=school,
 				).first()
-				print(f'submitted_obj_m: {submitted_obj_m}')
+				logger.info(f'submitted_obj_m: {submitted_obj_m}')
 				if not submitted_obj_m:
-					print('skipping...')
+					logger.info('skipping...')
 					continue
 				parsed_data_m = parse_nested_formdata(submitted_obj_m.submitted_session_data, request.FILES)
 				db_category["session_subject"] = parsed_data_m["subject"]
@@ -326,13 +327,13 @@ def generate_exam_bundle_for_school(request):
 					handle_shuffle_record(handle_shuffle_record_arg)
 				shuffle_record_dict.setdefault(_id, shuffle_record)
 
-			print(f'cleaned_ids: {cleaned_ids}')
-			print(f'many_payloads: {many_payloads}')
+			logger.info(f'cleaned_ids: {cleaned_ids}')
+			logger.info(f'many_payloads: {many_payloads}')
 			# zip all dirs once
 			file_url_m = zip_all(many_payloads)
-			print("Generated file URL:", file_url_m)
-			print('multiple usage (authenticated)')
-			print(f'shuffle_record_dict:')
+			logger.info("Generated file URL:", file_url_m)
+			logger.info('multiple usage (authenticated)')
+			logger.info(f'shuffle_record_dict:')
 			pretty_print_json(shuffle_record_dict)
 			return Response({"downloadLink": file_url_m}, status=status.HTTP_200_OK)
 
@@ -352,21 +353,21 @@ def generate_exam_bundle_for_school(request):
 			id=submitted_id,
 			school=school,
 		).first()
-		print(f'submitted_obj: {submitted_obj}')
-		print('submitted_session_data:')
+		logger.info(f'submitted_obj: {submitted_obj}')
+		logger.info('submitted_session_data:')
 		# pretty_print_json(submitted_obj.submitted_session_data)
 		print_formdata_content(submitted_obj.submitted_session_data)
 		# return Response({"success": "Success", "downloadLink": "file_url"})
 
 		parsed_data = parse_nested_formdata(submitted_obj.submitted_session_data, request.FILES)
-		# # print(f"Parsed form data: {json.dumps(parsed_data, indent=2)}")
+		# # logger.info(f"Parsed form data: {json.dumps(parsed_data, indent=2)}")
 		db_category["session_subject"] = parsed_data["subject"]
 		db_category["session_term"] = parsed_data["term"]
 		db_category["session_class"] = parsed_data["class"]
 		file_url, shuffle_record = Randomize(parsed_data, db_category=db_category)
 
-		print("Generated file URL:", file_url)
-		print('single usage (authenticated)')
+		logger.info("Generated file URL:", file_url)
+		logger.info('single usage (authenticated)')
 
 		# # save link for future downloads
 		# ScrambleLinks.objects.create(
@@ -381,21 +382,21 @@ def generate_exam_bundle_for_school(request):
 		return Response({"success": "Success", "downloadLink": file_url})
 
 	if request.method == 'POST':
-		print(f'in post:')
+		logger.info(f'in post:')
 		post_payload = request.data
 		saved_Id = post_payload.get("savedID")
-		print(f'saved_id: {saved_Id}')
+		logger.info(f'saved_id: {saved_Id}')
 		session_class = post_payload.get("class", None)
 		if not session_class:
-			print(f'class is required')
+			logger.info(f'class is required')
 			return Response({"error": "class not found"}, status=status.HTTP_400_BAD_REQUEST)
 		session_term = post_payload.get("term", None)
 		if not session_term:
-			print(f'term is required')
+			logger.info(f'term is required')
 			return Response({"error": "term not found"}, status=status.HTTP_400_BAD_REQUEST)
 		session_subject = post_payload.get("subject", None)
 		if not session_subject:
-			print(f'subject is required')
+			logger.info(f'subject is required')
 			return Response({"error": "subject not found"}, status=status.HTTP_400_BAD_REQUEST)
 		pretty_print_json(post_payload)
 		submitted_session = SubmitedQuestions.objects.filter(
@@ -405,16 +406,16 @@ def generate_exam_bundle_for_school(request):
 			session_term=session_term,
 			session_subject=session_subject
 		).first()
-		print(f'submitted_session: {submitted_session}')
+		logger.info(f'submitted_session: {submitted_session}')
 		# if submitted_session:
 		# 	serialized_submitted_session = SubmittedQuestionsReadSerializer(submitted_session).data
-		# 	print('serialized_submitted_session:')
+		# 	logger.info('serialized_submitted_session:')
 		# 	pretty_print_json(serialized_submitted_session)
 		is_update = bool(submitted_session)
 
 		# return Response({"error": "all good"})
 		if submitted_session:
-			print('updating existing session')
+			logger.info('updating existing session')
 			post_serializer = SubmittedQuestionsWriteSerializer(
 				submitted_session,
 				data={"submitted_session_data": post_payload},
@@ -431,24 +432,24 @@ def generate_exam_bundle_for_school(request):
 			# 	post_payload
 			# )
 		else:
-			print('creating new session')
+			logger.info('creating new session')
 			post_serializer = SubmittedQuestionsWriteSerializer(
 				data={"submitted_session_data": post_payload},
 				context={'request': request}
 			)
 
 		if post_serializer.is_valid():
-			print('serialized data is valid')
+			logger.info('serialized data is valid')
 			post_serializer.save()
 		else:
-			print(f'post_serializer.errors: {post_serializer.errors}')
+			logger.info(f'post_serializer.errors: {post_serializer.errors}')
 			return Response({"error": "Could not submit."}, status=status.HTTP_400_BAD_REQUEST)
 
 		if saved_Id:
-			print('checking by id')
+			logger.info('checking by id')
 			saved_question = ScrambleSession.objects.filter(id=saved_Id).first()
 		else:
-			print('checking by category')
+			logger.info('checking by category')
 			saved_question = ScrambleSession.objects.filter(
 				teacher=user,
 				school=school,
@@ -456,15 +457,15 @@ def generate_exam_bundle_for_school(request):
 				session_term=session_term,
 				session_subject=session_subject
 			).first()
-		print(f'saved_question: {saved_question}')
+		logger.info(f'saved_question: {saved_question}')
 		if saved_question:
-			print('updating ScrambleSession')
+			logger.info('updating ScrambleSession')
 			saved_question.scramble_session_data = post_payload
 			if saved_question.has_submitted == False:
 				saved_question.has_submitted = True
 			saved_question.save()
 		else:
-			print('creating ScrambleSession')
+			logger.info('creating ScrambleSession')
 			saved_question = ScrambleSessionWriteSerializer(
 				data={
 					"scramble_session_data": post_payload,
@@ -476,14 +477,14 @@ def generate_exam_bundle_for_school(request):
 				context={'request': request}
 			)
 			if saved_question.is_valid():
-				print('saved_question is valid')
+				logger.info('saved_question is valid')
 				saved_question = saved_question.save()
-				print(saved_question)
+				logger.info(saved_question)
 			else:
-				print(f'saved_question.errors: {saved_question.errors}')
-			# print('serialized data saved:')
+				logger.info(f'saved_question.errors: {saved_question.errors}')
+			# logger.info('serialized data saved:')
 			# pretty_print_json(post_serializer)
-		print(f'has_submitted: {saved_question.has_submitted}')
+		logger.info(f'has_submitted: {saved_question.has_submitted}')
 		return Response({
 					"success": "Submit updated" if is_update else "Submit success",
 					"has_submitted": saved_question.has_submitted,

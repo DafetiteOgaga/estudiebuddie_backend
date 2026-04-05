@@ -1,5 +1,5 @@
 # your_app/utils/randomize.py
-import os, shutil, zipfile, random, string, re, uuid, base64, tempfile
+import os, shutil, zipfile, random, string, re, uuid, base64, tempfile, logging
 from datetime import datetime
 from threading import Timer
 from docx import Document
@@ -18,6 +18,7 @@ from hooks.pretty_print import pretty_print_json
 from latex2mathml.converter import convert
 from lxml import etree
 from school.models import ScrambleSession
+logger = logging.getLogger(__name__)
 
 # # Ensure /public folder exists
 # PUBLIC_DIR = os.path.join(settings.BASE_DIR, 'public')
@@ -81,7 +82,7 @@ get_abbr_object = {
 	}
 }
 def get_abbr(category, value):
-	print(f'value: {value}')
+	logger.info(f'value: {value}')
 	if not value:
 		return value
 	return get_abbr_object[category].get(
@@ -91,25 +92,25 @@ def get_abbr(category, value):
 
 def remove_curly_braces(math_line):
     if math_line.startswith("{") and math_line.endswith("}"):
-        print(f'original math line: {math_line}')
+        logger.info(f'original math line: {math_line}')
         math_line = math_line[1:-1]
-        print(f'curly removed: {math_line}')
+        logger.info(f'curly removed: {math_line}')
         return remove_curly_braces(math_line) # recursive
-    print(f'no_curly: {math_line}')
+    logger.info(f'no_curly: {math_line}')
     return math_line  # base case
 
 def get_shuffle_record(db_category):
-	print('checking ')
+	logger.info('checking ')
 	if db_category:
-		print('checking if shuffle_record exists')
+		logger.info('checking if shuffle_record exists')
 		queryset_record = ScrambleSession.objects.filter(**db_category)
-		print(f'queryset_record: {queryset_record}')
+		logger.info(f'queryset_record: {queryset_record}')
 		record = queryset_record.values_list('shuffle_record', flat=True).first()
-		print(f'record:')
+		logger.info(f'record:')
 		pretty_print_json(record)
 		return record, False if queryset_record else True
 	else:
-		print('no category data provided')
+		logger.info('no category data provided')
 		return None
 
 def base64_to_png_file(base64_str):
@@ -129,19 +130,19 @@ def base64_to_png_file(base64_str):
 latex_pattern = r'(\\[a-zA-Z]+.*)'
 def mathml_to_omml(mathml_string):
 	xslt_path = os.path.join(settings.BASE_DIR, "MML2OMML.XSL")
-	# print(f'xslt_path: {xslt_path}')
-	# print(f'path exist: {os.path.exists(xslt_path)}')
+	# logger.info(f'xslt_path: {xslt_path}')
+	# logger.info(f'path exist: {os.path.exists(xslt_path)}')
 
 	mathml_dom = etree.fromstring(mathml_string.encode())
 
-	# print(f'mathml_dom: {mathml_dom}')
+	# logger.info(f'mathml_dom: {mathml_dom}')
 	xslt = etree.parse(xslt_path)
-	# print(f'xslt: {xslt}')
+	# logger.info(f'xslt: {xslt}')
 	transform = etree.XSLT(xslt)
-	# print(f'transform: {transform}')
+	# logger.info(f'transform: {transform}')
 
 	omml_dom = transform(mathml_dom)
-	# print(f'omml_dom: {omml_dom}')
+	# logger.info(f'omml_dom: {omml_dom}')
 	return omml_dom.getroot()
 
 def shuffle_array(arr, return_order=False, order=None):
@@ -232,18 +233,18 @@ def save_docx(
 	image_map=None,
 	logo=None,
 	extracts=None):
-	print('✅✅✅✅✅✅✅✅✅✅')
-	print(f'paragraphs:')
+	logger.info('✅✅✅✅✅✅✅✅✅✅')
+	logger.info(f'paragraphs:')
 	pretty_print_json(paragraphs)
-	# print(f'extracts:')
+	# logger.info(f'extracts:')
 	# pretty_print_json(extracts)
-	print(f'file_path: {file_path}')
-	print(f'add_footer: {add_footer}')
-	print(f'image_map: {image_map}')
-	print(f'logo: {logo}')
-	print('❎❎❎❎❎❎❎❎❎❎')
+	logger.info(f'file_path: {file_path}')
+	logger.info(f'add_footer: {add_footer}')
+	logger.info(f'image_map: {image_map}')
+	logger.info(f'logo: {logo}')
+	logger.info('❎❎❎❎❎❎❎❎❎❎')
 	# #####################
-	# print("data to use for file:")
+	# logger.info("data to use for file:")
 	# pretty_print_json(paragraphs)
 	# #####################
 	if image_map is None:
@@ -402,7 +403,7 @@ def save_docx(
 	options = []
 	# --- Add question body content (flows across columns & pages)
 	for para in paragraphs[body_start_index:]:
-		# print(f'para: {para}')
+		# logger.info(f'para: {para}')
 		# Detect image marker
 		if re.match(r'^A\.\s', para):
 			options = [para]
@@ -418,7 +419,7 @@ def save_docx(
 			p.paragraph_format.space_before = Pt(0)
 			p.paragraph_format.space_after = Pt(2)
 			p.paragraph_format.line_spacing_rule = WD_LINE_SPACING.SINGLE
-			print(f'options: {options}')
+			logger.info(f'options: {options}')
 
 			tabs = p.paragraph_format.tab_stops
 			tabs.clear_all()
@@ -434,7 +435,7 @@ def save_docx(
 			continue
 
 		if para.startswith("__IMAGE__:"):
-			print(f'__IMAGE__')
+			logger.info(f'__IMAGE__')
 			q_index = int(para.split(":")[1])
 			image = image_map.get(q_index)
 
@@ -453,7 +454,7 @@ def save_docx(
 
 			continue  # skip text rendering for marker
 
-		# print(f'para: {para}')
+		# logger.info(f'para: {para}')
 
 		mathml = None
 		match = re.search(latex_pattern, para)
@@ -470,9 +471,9 @@ def save_docx(
 			math_paragraph = doc.add_paragraph()
 
 			mathml = convert(latex)
-			# print(f'mathml: {mathml}')
+			# logger.info(f'mathml: {mathml}')
 			omml = mathml_to_omml(mathml)
-			# print(f'omml: {omml}')
+			# logger.info(f'omml: {omml}')
 
 			math_paragraph._p.append(omml)
 
@@ -522,7 +523,7 @@ def save_docx(
 
 def get_unique_id():
 	random_str = ''.join(random.choices(string.ascii_lowercase + string.digits, k=4))
-	print(f"Generated random string for variant ID: {random_str}")
+	logger.info(f"Generated random string for variant ID: {random_str}")
 	# pretty_print_json(random_str)
 
 	# Get current time
@@ -548,11 +549,11 @@ def clean_term(term):
 
 def Randomize(data, multiple=False, db_category=None):
 	try:
-		print('db_category:')
+		logger.info('db_category:')
 		pretty_print_json(db_category)
 		saved_shuffle_record, gen_new = get_shuffle_record(db_category)
-		print('saved_shuffle_record:')
-		print(saved_shuffle_record)
+		logger.info('saved_shuffle_record:')
+		logger.info(saved_shuffle_record)
 		# random_str = ''.join(random.choices(string.ascii_lowercase + string.digits, k=4))
 		# variant_id = f"{uuid.uuid4().hex[:8]}_{random_str}"
 		# Generate 4 random lowercase alphanumeric characters
@@ -561,7 +562,7 @@ def Randomize(data, multiple=False, db_category=None):
 		subject = data['subject'].lower()
 		generated_term = clean_term(data.get('term', None))
 		theory_questions = data.get("theory", None)
-		print(f'theory_questions:')
+		logger.info(f'theory_questions:')
 		pretty_print_json(theory_questions)
 
 		# Combine to form variantId
@@ -571,12 +572,12 @@ def Randomize(data, multiple=False, db_category=None):
 		term_abbr = get_abbr("term_abbr", generated_term.split("-")[0])
 		_day, _time, _str = unique_time.split("_")
 		exam_id = f"{subject_abbr}_{term_abbr}_{_time}_{_str}"
-		print(f'Generated Exam ID: {exam_id}')
-		print(f"Generated variant ID: {variant_id}")
+		logger.info(f'Generated Exam ID: {exam_id}')
+		logger.info(f"Generated variant ID: {variant_id}")
 
 		# Create directories and files names
 		zip_filename = f"estudiebuddie_{variant_id}.zip"
-		print("ZIP filename will be:")
+		logger.info("ZIP filename will be:")
 		pretty_print_json(zip_filename)
 		public_dir = os.path.join(settings.BASE_DIR, 'public')
 		dir_path = os.path.join(public_dir, variant_id)
@@ -586,22 +587,22 @@ def Randomize(data, multiple=False, db_category=None):
 
 		# Generate question types (A-Z)
 		types = generate_alphabets(int(data['noOfTypes']))
-		print(f"Generated question types:")
+		logger.info(f"Generated question types:")
 		pretty_print_json(types)
 
 		# compare the length of incoming questions to the saved
 		saved_questions_length = len(saved_shuffle_record["A"]["question_order"]) if (saved_shuffle_record and not gen_new) else 0
-		print(f'saved_questions_length: {saved_questions_length}')
+		logger.info(f'saved_questions_length: {saved_questions_length}')
 		incoming_questions_length = len(data.get('postQuestions', data.get('questions')).values())
-		print(f'incoming_questions_length: {incoming_questions_length}')
+		logger.info(f'incoming_questions_length: {incoming_questions_length}')
 		reshuffle = saved_questions_length != incoming_questions_length
 		# Generate question and answer files for each type
 		all_shuffle_records = {}
 		shuffle_record = None
 		for i, type_code in enumerate(types):
-			print(f"Generating files for question type: {type_code}")
-			# print(f"data: {data}")
-			# print(f"postQuestions: {data['postQuestions']}")
+			logger.info(f"Generating files for question type: {type_code}")
+			# logger.info(f"data: {data}")
+			# logger.info(f"postQuestions: {data['postQuestions']}")
 			# Shuffle questions
 			# questions = shuffle_array(data.get('postQuestions', data.get('questions')))
 			order = None
@@ -622,38 +623,38 @@ def Randomize(data, multiple=False, db_category=None):
 				f"Type: {type_code}",
 				""
 			]
-			print(f"Initialized answer key for type {type_code}")
+			logger.info(f"Initialized answer key for type {type_code}")
 			pretty_print_json(answer_key)
-			print(f"Shuffled questions for type {type_code}")
-			# print(f"Shuffled Questions:")
+			logger.info(f"Shuffled questions for type {type_code}")
+			# logger.info(f"Shuffled Questions:")
 			# pretty_print_json(questions)
 
 			# Prepare header here
 			duration = data['duration']
 			try:
-				print(f"Processing duration: {duration}")
+				logger.info(f"Processing duration: {duration}")
 				num = float(duration)
-				# print(f"Converted duration to float: {num}")
+				# logger.info(f"Converted duration to float: {num}")
 				if num > 1:
-					# print(f"Duration is plural hours: {num}")
+					# logger.info(f"Duration is plural hours: {num}")
 					# plural: keep as hours
 					duration_str = f"{num:g} hours"   # :g removes trailing .0 for whole numbers
 				elif num == 1:
-					# print(f"Duration is singular one hour")
+					# logger.info(f"Duration is singular one hour")
 					# singular
 					duration_str = f"{num:g} hour"
 				elif 0 < num < 1:
-					# print(f"Duration is fractional hours: {num}")
+					# logger.info(f"Duration is fractional hours: {num}")
 					# convert fractional hours to minutes
 					minutes = round(num * 60)
-					# print(f"Converted fractional hours to minutes: {minutes}")
+					# logger.info(f"Converted fractional hours to minutes: {minutes}")
 					duration_str = f"{minutes} minute{'s' if minutes != 1 else ''}"
 				else:
-					# print(f"Duration is zero or negative: {num}")
+					# logger.info(f"Duration is zero or negative: {num}")
 					# for 0 or negative values, just leave as-is or customize
 					duration_str = str(duration)
 			except (ValueError, TypeError, OverflowError):
-				# print(f"Duration is non-numeric: {duration}")
+				# logger.info(f"Duration is non-numeric: {duration}")
 				duration_str = duration
 			school_name = data.get("school", None)
 			header_lines = [
@@ -669,26 +670,26 @@ def Randomize(data, multiple=False, db_category=None):
 			]
 			if school_name:
 				header_lines.insert(0, school_name.upper())
-			# print(f"Prepared header for type {type_code}")
-			# print(f"Header Lines:")
+			# logger.info(f"Prepared header for type {type_code}")
+			# logger.info(f"Header Lines:")
 			# pretty_print_json(header_lines)
 
 			# Prepare questions with shuffled options
 			question_lines = header_lines[:]
-			# print(f"Starting to process questions for type {type_code}")
-			# print(f"Initial Question Lines:")
+			# logger.info(f"Starting to process questions for type {type_code}")
+			# logger.info(f"Initial Question Lines:")
 			# # pretty_print_json(question_lines)
 
 			extracted_full_questions_with_types = None
 
 			# Process each question
 			for idx, q in enumerate(questions):
-				# print(f"Processing question {idx + 1} for type {type_code}")
-				# print(f"Question Data:")
+				# logger.info(f"Processing question {idx + 1} for type {type_code}")
+				# logger.info(f"Question Data:")
 				# pretty_print_json(q)
 				question_obj = [qo for qo in q if qo]
 				q = question_obj[0]
-				# print('extrated question:')
+				# logger.info('extrated question:')
 				# pretty_print_json(q)
 				# Shuffle options
 				# opts = shuffle_array([
@@ -710,31 +711,31 @@ def Randomize(data, multiple=False, db_category=None):
 				if option_order:
 					shuffle_record["option_orders"][str(idx)] = option_order
 
-				# print(f"Shuffled options for question {idx + 1}:")
+				# logger.info(f"Shuffled options for question {idx + 1}:")
 				# pretty_print_json(opts)
 				# Label options A, B, C, D
 				for j, opt in enumerate(opts):
-					# print(f"Labeling option {j + 1} for question {idx + 1}")
-					# print(f"Option Data Before Labeling:")
+					# logger.info(f"Labeling option {j + 1} for question {idx + 1}")
+					# logger.info(f"Option Data Before Labeling:")
 					# pretty_print_json(opt)
 					opt['label'] = chr(65 + j)
-					# print(f"Option Data After Labeling:")
+					# logger.info(f"Option Data After Labeling:")
 					# pretty_print_json(opt)
 
 				# Find correct option for answer key
 				correct = next(o for o in opts if o["isCorrect"])
-				# print(f"Correct option for question {idx + 1}:")
+				# logger.info(f"Correct option for question {idx + 1}:")
 				# pretty_print_json(correct)
 				# Append to answer key
 				answer_key.append(f"{idx + 1}. {correct['label']}")
-				# print(f"Updated answer key:")
+				# logger.info(f"Updated answer key:")
 				# pretty_print_json(answer_key)
 
 				# append image (if it exists)
 				if q.get("image"):
 					question_lines.append(f"__IMAGE__:{idx}")
 				# Append question and options to question lines
-				# print('question:')
+				# logger.info('question:')
 				# pretty_print_json(q)
 				# extracted_question = q["question"][0][0]["value"]
 				extracted_full_questions_with_types = q.get("question", None)
@@ -746,14 +747,14 @@ def Randomize(data, multiple=False, db_category=None):
 							result[item["type"]] = item["value"]
 
 				extracted_full_questions_with_types = result
-				# print('🏆🏆🏆🏆🏆🏆🏆🏆🏆+++++')
-				# print(f'extracted_full_questions_with_types:')
+				# logger.info('🏆🏆🏆🏆🏆🏆🏆🏆🏆+++++')
+				# logger.info(f'extracted_full_questions_with_types:')
 				# pretty_print_json(extracted_full_questions_with_types)
-				# print('🏆🏆🏆🏆🏆🏆🏆🏆🏆-----')
+				# logger.info('🏆🏆🏆🏆🏆🏆🏆🏆🏆-----')
 
 				diagram_line = extracted_full_questions_with_types.get("diagram", None)
 				if diagram_line:
-					print('appending diagram:')
+					logger.info('appending diagram:')
 					question_lines.append(f"__IMAGE__:{idx}")
 
 				# appending current question
@@ -762,30 +763,30 @@ def Randomize(data, multiple=False, db_category=None):
 				math_line = extracted_full_questions_with_types.get("math", None)
 				if math_line:
 					# if math_line.startswith("{") and math_line.endswith("}"):
-					# 	print(f'original math line: {math_line}')
+					# 	logger.info(f'original math line: {math_line}')
 					# 	math_line = math_line[1:-1]
-					# 	print(f'no_curly: {math_line}')
+					# 	logger.info(f'no_curly: {math_line}')
 					math_line = remove_curly_braces(math_line)
 
-					print(f'adding math line: {math_line}')
+					logger.info(f'adding math line: {math_line}')
 					question_lines.append(f"{''.rjust(2, ' ')} {math_line}")
-				print(f"Added question {idx + 1} to question lines.")
-				# print('🎲🎲🎲🎲🎲🎲🎲')
-				# print(f"Current Question Lines:")
+				logger.info(f"Added question {idx + 1} to question lines.")
+				# logger.info('🎲🎲🎲🎲🎲🎲🎲')
+				# logger.info(f"Current Question Lines:")
 				# pretty_print_json(question_lines)
-				# print('🥏🥏🥏🥏🥏🥏🥏')
+				# logger.info('🥏🥏🥏🥏🥏🥏🥏')
 
 				# Loop and append options
 				for opt in opts:
-					# print(f"Adding option for question {idx + 1}")
+					# logger.info(f"Adding option for question {idx + 1}")
 					# pretty_print_json(opt)
 					# append option label and text
 					question_lines.append(f"{opt['label']}. {opt['text']}")
-					# print(f"Added option`s label to question lines.")
+					# logger.info(f"Added option`s label to question lines.")
 					# pretty_print_json(opt["label"])
 				# Add a blank line after each question
 				question_lines.append("")
-				print(f"Finished processing question {idx + 1}. Current Question Lines:")
+				logger.info(f"Finished processing question {idx + 1}. Current Question Lines:")
 				# pretty_print_json(question_lines)
 
 				# stored shuffle records
@@ -794,9 +795,9 @@ def Randomize(data, multiple=False, db_category=None):
 
 			# Save Question and Answer Files
 			quest_dir = os.path.join(dir_path, 'questions')
-			print(f"Creating directories for type {type_code}")
+			logger.info(f"Creating directories for type {type_code}")
 			ans_dir = os.path.join(dir_path, 'answers')
-			print(f"Creating answer directories for type {type_code}")
+			logger.info(f"Creating answer directories for type {type_code}")
 			os.makedirs(quest_dir, exist_ok=True)
 			os.makedirs(ans_dir, exist_ok=True)
 			question_path_for_docx = os.path.join(quest_dir, f"Question_type_{type_code}.docx")
@@ -805,49 +806,49 @@ def Randomize(data, multiple=False, db_category=None):
 			# build image map
 			image_map = {}
 			for i, q in enumerate(questions):
-				# print("q question:")
+				# logger.info("q question:")
 				# pretty_print_json(q)
 				question_obj = [qo for qo in q if qo]
 				extracted_question_with_image = question_obj[0]
-				# print('✨✨✨✨✨✨✨✨✨000')
+				# logger.info('✨✨✨✨✨✨✨✨✨000')
 				
 				img = None
 				if extracted_question_with_image.get("image"):
-					print('♻♻♻♻♻♻♻♻♻♻')
+					logger.info('♻♻♻♻♻♻♻♻♻♻')
 					img = extracted_question_with_image["image"]
 				else:
 					diagram_info = extracted_question_with_image.get("question", None)
 					if diagram_info:
 						diagram_info = [item for sublist in diagram_info.values() for item in sublist if item]
 						
-						# print('✨✨✨✨✨✨✨✨✨111')
-						# print(f'diagram_info:')
+						# logger.info('✨✨✨✨✨✨✨✨✨111')
+						# logger.info(f'diagram_info:')
 						# # pretty_print_json(diagram_info)
-						# print('✨✨✨✨✨✨✨✨✨---')
+						# logger.info('✨✨✨✨✨✨✨✨✨---')
 						dia_keys = set([k["type"] for k in diagram_info])
 						# pretty_print_json(dia_keys)
-						# print('diagram_info22222:')
+						# logger.info('diagram_info22222:')
 						# pretty_print_json(diagram_info)
 						if 'diagram' in dia_keys:
 							diagram_in_q = [d['value'] for d in diagram_info if d['type']=='diagram_png'][0]
-							# print('diagram_in_q:')
+							# logger.info('diagram_in_q:')
 							# pretty_print_json(diagram_in_q)
 							img = base64_to_png_file(diagram_in_q)
-							print('img:')
+							logger.info('img:')
 							pretty_print_json(img)
 							# if q.get("image"):
 							# question_lines.append(f"__IMAGE__:{idx}")
-					# print('✨✨✨✨✨✨✨✨✨222')
+					# logger.info('✨✨✨✨✨✨✨✨✨222')
 
 				if img:
-					print('🥇🥇🥇🥇🥇🥇🥇🥇🥇🥇🥇')
+					logger.info('🥇🥇🥇🥇🥇🥇🥇🥇🥇🥇🥇')
 					image_map[i] = img
 				# if extracted_question_with_image.get("image"):
 				# 	image_map[i] = extracted_question_with_image["image"]
 
 
 			if theory_questions:
-				print("Processing THEORY questions...")
+				logger.info("Processing THEORY questions...")
 
 				# normalize root
 				theory_tree = []
@@ -862,7 +863,7 @@ def Randomize(data, multiple=False, db_category=None):
 				question_lines.append("")
 
 				question_lines.extend(theory_lines)
-			# print('extracted_full_questions_with_types:')
+			# logger.info('extracted_full_questions_with_types:')
 			# pretty_print_json(extracted_full_questions_with_types)
 			save_docx(
 				question_lines,
@@ -876,18 +877,18 @@ def Randomize(data, multiple=False, db_category=None):
 			# # pdf creation
 			# try:
 			# 	convert(question_path_for_docx, question_path_for_pdf)
-			# 	print(f"PDF generated successfully: {question_path_for_pdf}")
+			# 	logger.info(f"PDF generated successfully: {question_path_for_pdf}")
 			# except Exception as e:
-			# 	print(f"PDF generation failed for {question_path_for_docx}: {e}")
+			# 	logger.info(f"PDF generation failed for {question_path_for_docx}: {e}")
 
 			# with open(os.path.join(quest_dir, f"Exam_type_{type_code}.txt"), "w") as f:
-			# 	print(f"Saving question text file for type {type_code}")
+			# 	logger.info(f"Saving question text file for type {type_code}")
 			# 	f.write("\n".join(question_lines))
 
 			with open(os.path.join(ans_dir, f"Answers_type_{type_code}.txt"), "w") as f:
-				print(f"Saving answer key text file for type {type_code}")
+				logger.info(f"Saving answer key text file for type {type_code}")
 				f.write("\n".join(answer_key))
-		print("FULL SHUFFLE RECORD")
+		logger.info("FULL SHUFFLE RECORD")
 		pretty_print_json(all_shuffle_records)
 		if not all_shuffle_records:
 			all_shuffle_records = None
@@ -895,13 +896,13 @@ def Randomize(data, multiple=False, db_category=None):
 		# Zip the directory if not batching
 		if not multiple:
 			# zip_path = os.path.join(public_dir, zip_filename)
-			# print(f"Creating ZIP archive at: {zip_path}")
+			# logger.info(f"Creating ZIP archive at: {zip_path}")
 			# with zipfile.ZipFile(zip_path, 'w', zipfile.ZIP_DEFLATED) as archive:
-			# 	print(f"Adding files to ZIP archive: {zip_path}")
+			# 	logger.info(f"Adding files to ZIP archive: {zip_path}")
 			# 	for foldername, _, filenames in os.walk(dir_path):
-			# 		print(f"Walking through folder: {foldername}")
+			# 		logger.info(f"Walking through folder: {foldername}")
 			# 		for filename in filenames:
-			# 			print(f"Adding file to archive: {filename}")
+			# 			logger.info(f"Adding file to archive: {filename}")
 			# 			file_path = os.path.join(foldername, filename)
 			# 			arcname = os.path.relpath(file_path, os.path.join(dir_path, '..'))
 			# 			archive.write(file_path, arcname)
@@ -909,18 +910,18 @@ def Randomize(data, multiple=False, db_category=None):
 			# # schedule_deletion(zip_path, dir_path)
 
 			# return f"/public/{zip_filename}"
-			print('NOT MULTIPLE')
+			logger.info('NOT MULTIPLE')
 			return zip_all(dir_paths=[dir_path], zip_name=zip_filename), all_shuffle_records
 
 		# if batch
-		print('YEAH, MULTIPLE')
+		logger.info('YEAH, MULTIPLE')
 		return {
 			"variant_id": variant_id,
 			"dir_path": dir_path,
 		}, all_shuffle_records
 
 	except Exception as e:
-		print(f"Error generating exam bundle: {get_timestamp()} =>", e)
+		logger.info(f"Error generating exam bundle: {get_timestamp()} =>", e)
 		raise Exception("Failed to generate exam bundle")
 
 
@@ -947,7 +948,7 @@ def zip_all(dir_paths, zip_name=None):
 	# CLEANUP (after zip is closed)
 	for dir_path in dir_paths:
 		if os.path.exists(dir_path):
-			print(f'deleting: {dir_path}')
+			logger.info(f'deleting: {dir_path}')
 			shutil.rmtree(dir_path)
 
 	return f"/public/{zip_name}"

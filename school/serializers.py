@@ -1,5 +1,7 @@
 from rest_framework import serializers
 from .models import *
+import logging
+logger = logging.getLogger(__name__)
 
 # Create your serializers here.
 class SchoolSerializer(serializers.ModelSerializer):
@@ -19,12 +21,12 @@ class ScrambleSessionWriteSerializer(serializers.ModelSerializer):
         ]
 
     def create(self, validated_data):
-        print('in create method in serializer')
+        logger.info('in create method in serializer')
         request = self.context['request']
         teacher = request.user
         school = teacher.school
         
-        # print(f'validated_data: {validated_data}')
+        # logger.info(f'validated_data: {validated_data}')
 
         return ScrambleSession.objects.create(
             teacher=teacher,
@@ -33,7 +35,7 @@ class ScrambleSessionWriteSerializer(serializers.ModelSerializer):
         )
 
     def update(self, instance, validated_data):
-        print('in update method in serializer')
+        logger.info('in update method in serializer')
         for attr, value in validated_data.items():
             setattr(instance, attr, value)
         instance.save()
@@ -60,7 +62,7 @@ class SubmittedQuestionsWriteSerializer(serializers.ModelSerializer):
         fields = ['submitted_session_data']
 
     def create(self, validated_data):
-        print('in create method in serializer')
+        logger.info('in create method in serializer')
         request = self.context['request']
         teacher = request.user
         school = teacher.school
@@ -69,7 +71,7 @@ class SubmittedQuestionsWriteSerializer(serializers.ModelSerializer):
         validated_data["session_class"] = submitted_data.get("class")
         validated_data["session_term"] = submitted_data.get("term")
         validated_data["session_subject"] = submitted_data.get("subject")
-        # print(f'validated_data: {validated_data}')
+        # logger.info(f'validated_data: {validated_data}')
 
         return SubmitedQuestions.objects.create(
             teacher=teacher,
@@ -78,7 +80,7 @@ class SubmittedQuestionsWriteSerializer(serializers.ModelSerializer):
         )
 
     def update(self, instance, validated_data):
-        print('in update method in serializer')
+        logger.info('in update method in serializer')
         for attr, value in validated_data.items():
             setattr(instance, attr, value)
         instance.save()
