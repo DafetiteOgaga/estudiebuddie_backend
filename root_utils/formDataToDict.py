@@ -179,34 +179,10 @@ def generate_esb_code(school_id, code_type='school'):
         if not School.objects.filter(code=code).exists():
             return code
 
-# def cleanup_old_zips():
-#     public_dir = os.path.join(settings.BASE_DIR, "public")
-#     now = time.time()
-
-#     saved_links = ScrambleLinks.objects.all()
-
-#     for file in os.listdir(public_dir):
-#         if file.endswith(".zip"):
-#             path = os.path.join(public_dir, file)
-#             logger.info(f'found: {file}')
-#             if now - os.path.getmtime(path) > EXPIRY_SECONDS:
-#                 try:
-#                     # delete expired archive
-#                     logger.info(f'deleting: {file}')
-#                     os.remove(path)
-
-#                     # deletes corresponding saved record
-#                     link_path = f"/public/{file}"
-#                     deleted_saved_obj, _ = saved_links.filter(link=link_path).delete()
-#                     logger.info(f'deleted: {file} link record')
-#                 except FileNotFoundError:
-#                     logger.info(f'no zip file to delete')
-#                     pass
-
 def cleanup_old_zips():
     EXPIRY_SECONDS = 60 * 30
     logger.info(f'scanning for expired zip and links')
-    public_dir = os.path.join(settings.BASE_DIR, "public")
+    public_dir = os.path.join(settings.BASE_DIR, "media")
     now = time.time()
 
     saved_links = ScrambleLinks.objects.all()
@@ -235,7 +211,7 @@ def cleanup_old_zips():
                 logger.info(f"deleting expired zip: {file}")
                 os.remove(path)
 
-                link_path = f"/public/{file}"
+                link_path = f"/media/{file}"
                 saved_links.filter(link=link_path).delete()
                 logger.info(f'deleted: {file} link record')
 
