@@ -92,7 +92,7 @@ def generate_exam_bundle(request):
 			"session_class": parsed_data["class"],
 		}
 		file_url, shuffle_record = Randomize(parsed_data, db_category=db_category)
-		logger.info("Generated file URL:", file_url)
+		logger.info(f"Generated file URL: {file_url}")
 		logger.info('free usage')
 
 		logger.info(f'user: {user}')
