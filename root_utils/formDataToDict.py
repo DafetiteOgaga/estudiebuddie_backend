@@ -1,8 +1,9 @@
-import re, json, string, secrets, os, time
+import re, json, string, secrets, os, time, logging
 from pathlib import Path
 from django.conf import settings
 from collections import defaultdict
 from shufflequestions.models import ScrambleLinks
+logger = logging.getLogger(__name__)
 
 def parse_nested_formdata(flat_data, files):
     """
@@ -132,7 +133,7 @@ def print_formdata_content(formdata, files=None):
     Files are shown by filename to avoid JSON errors.
     """
     if not formdata:
-        print("No form data provided.")
+        logger.info("No form data provided.")
         return
 
     # Step 1: Reconstruct nested dict from flat keys
@@ -141,9 +142,9 @@ def print_formdata_content(formdata, files=None):
     # Step 2: Safely serialize any file objects
     safe_data = serialize(nested_data)
 
-    # Step 3: Print as pretty JSON
-    print("Form Data Content:")
-    print(json.dumps(safe_data, indent=2))
+    # Step 3: logger.info as pretty JSON
+    logger.info("Form Data Content:")
+    logger.info(json.dumps(safe_data, indent=2))
 
 def generate_esb_code(school_id, code_type='school'):
     """
@@ -152,7 +153,7 @@ def generate_esb_code(school_id, code_type='school'):
     """
     from school.models import School  # local import to avoid circular imports
 
-    print(f'code_type: {code_type}')
+    logger.info(f'code_type: {code_type}')
     PREFIX = "ESB"
     LENGTH = 6  # adjustable (6 = ~2.1B combinations)
     if code_type == "admin" or code_type == "teacher":
@@ -160,11 +161,11 @@ def generate_esb_code(school_id, code_type='school'):
             PREFIX = "ESBA"
         elif code_type == "teacher":
             PREFIX = "ESBT"
-        # print(f'LENGTH: {LENGTH}')
-        # print(f'len(user_id): {len(str(user_id))}')
-        # print(f'user_id: {user_id}')
+        # logger.info(f'LENGTH: {LENGTH}')
+        # logger.info(f'len(user_id): {len(str(user_id))}')
+        # logger.info(f'user_id: {user_id}')
         # LENGTH = LENGTH - (len(str(user_id)) + 1)
-        # print(f'LENGTH: {LENGTH}')
+        # logger.info(f'LENGTH: {LENGTH}')
 
     alphabet = string.ascii_uppercase + string.digits
 
@@ -173,7 +174,7 @@ def generate_esb_code(school_id, code_type='school'):
         code = f"{PREFIX}-{random_part}"
         if code_type == "admin" or code_type == "teacher":
             code = f"{PREFIX}-{random_part}l{school_id}"
-        print(f'generated code: {code}')
+        logger.info(f'generated code: {code}')
 
         if not School.objects.filter(code=code).exists():
             return code
@@ -187,31 +188,31 @@ def generate_esb_code(school_id, code_type='school'):
 #     for file in os.listdir(public_dir):
 #         if file.endswith(".zip"):
 #             path = os.path.join(public_dir, file)
-#             print(f'found: {file}')
+#             logger.info(f'found: {file}')
 #             if now - os.path.getmtime(path) > EXPIRY_SECONDS:
 #                 try:
 #                     # delete expired archive
-#                     print(f'deleting: {file}')
+#                     logger.info(f'deleting: {file}')
 #                     os.remove(path)
 
 #                     # deletes corresponding saved record
 #                     link_path = f"/public/{file}"
 #                     deleted_saved_obj, _ = saved_links.filter(link=link_path).delete()
-#                     print(f'deleted: {file} link record')
+#                     logger.info(f'deleted: {file} link record')
 #                 except FileNotFoundError:
-#                     print(f'no zip file to delete')
+#                     logger.info(f'no zip file to delete')
 #                     pass
 
 def cleanup_old_zips():
     EXPIRY_SECONDS = 60 * 30
-    print(f'scanning for expired zip and links')
+    logger.info(f'scanning for expired zip and links')
     public_dir = os.path.join(settings.BASE_DIR, "public")
     now = time.time()
 
     saved_links = ScrambleLinks.objects.all()
-    # print(f'saved_links:')
+    # logger.info(f'saved_links:')
     # for i in saved_links:
-    #     print(i)
+    #     logger.info(i)
 
     # ---- collect zip files on disk in a set (set comprehension) ----
     if not os.path.isdir(public_dir):
@@ -220,36 +221,36 @@ def cleanup_old_zips():
         zip_files_on_disk = {
             file for file in os.listdir(public_dir) if file.endswith(".zip")
         }
-    # print(f'zip_files_on_disk:')
+    # logger.info(f'zip_files_on_disk:')
     # for i in zip_files_on_disk:
-    #     print(i)
+    #     logger.info(i)
 
     # ---- delete expired zip files + DB records ----
     for file in zip_files_on_disk.copy():
         path = os.path.join(public_dir, file)
-        print(f'found: {file}')
+        logger.info(f'found: {file}')
 
         if now - os.path.getmtime(path) > EXPIRY_SECONDS:
             try:
-                print(f"deleting expired zip: {file}")
+                logger.info(f"deleting expired zip: {file}")
                 os.remove(path)
 
                 link_path = f"/public/{file}"
                 saved_links.filter(link=link_path).delete()
-                print(f'deleted: {file} link record')
+                logger.info(f'deleted: {file} link record')
 
                 zip_files_on_disk.remove(file)
             except FileNotFoundError:
-                print(f'no zip file to delete')
+                logger.info(f'no zip file to delete')
                 pass
 
     # ---- delete orphaned DB records (no file exists) ----
     for link in saved_links:
-        print(f'link::::: {link}')
+        logger.info(f'link::::: {link}')
         filename = os.path.basename(link.link)
-        print(f'filename::::: {filename}')
-        print(''.rjust(20, '-'))
+        logger.info(f'filename::::: {filename}')
+        logger.info(''.rjust(20, '-'))
 
         if filename not in zip_files_on_disk:
-            print(f"orphaned DB link removed: {link.link}")
+            logger.info(f"orphaned DB link removed: {link.link}")
             link.delete()
