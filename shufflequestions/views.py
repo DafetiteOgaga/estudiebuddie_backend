@@ -331,7 +331,7 @@ def generate_exam_bundle_for_school(request):
 			logger.info(f'many_payloads: {many_payloads}')
 			# zip all dirs once
 			file_url_m = zip_all(many_payloads)
-			logger.info("Generated file URL:", file_url_m)
+			logger.info(f"Generated file URL: {file_url_m}")
 			logger.info('multiple usage (authenticated)')
 			logger.info(f'shuffle_record_dict:')
 			pretty_print_json(shuffle_record_dict)
@@ -366,7 +366,7 @@ def generate_exam_bundle_for_school(request):
 		db_category["session_class"] = parsed_data["class"]
 		file_url, shuffle_record = Randomize(parsed_data, db_category=db_category)
 
-		logger.info("Generated file URL:", file_url)
+		logger.info(f"Generated file URL: {file_url}")
 		logger.info('single usage (authenticated)')
 
 		# # save link for future downloads
