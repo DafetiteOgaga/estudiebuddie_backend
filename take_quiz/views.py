@@ -562,7 +562,7 @@ def pre_quiz(request):
 	if request.method == 'POST':
 		# Handle POST request
 		payload = request.data
-		logger.info('pre-quiz:', payload)
+		logger.info(f"pre-quiz: {payload}")
 	return Response({
 					'success': 'Success',
 					'goto': 'take-quiz/take-quiz',
@@ -841,7 +841,7 @@ def send_time(request, session_id):
 		# Handle GET request
 		new_session = request.GET.get("session")
 		logger.info(f'new_session: {new_session}')
-		logger.info('session_id:', session_id)
+		logger.info(f'session_id: {session_id}')
 		quiz_session = QuizSession.objects.filter(session_id=session_id).first()
 		if not quiz_session:
 			invalid_session = "Invalid Session."
