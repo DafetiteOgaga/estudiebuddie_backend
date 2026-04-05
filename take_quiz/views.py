@@ -6,10 +6,11 @@ from rest_framework.permissions import AllowAny
 from contribute.models import Question, Category, QuizSession, QuizAnswer
 from contribute.serializers import QuestionReadSerializer
 from hooks.pretty_print import pretty_print_json
-import random
+import random, logging
 from django.db import transaction
 from django.db.models import Count, Q
 from django.utils import timezone
+logger = logging.getLogger(__name__)
 
 mock_questions = [
     {
@@ -561,7 +562,7 @@ def pre_quiz(request):
 	if request.method == 'POST':
 		# Handle POST request
 		payload = request.data
-		print('pre-quiz:', payload)
+		logger.info('pre-quiz:', payload)
 	return Response({
 					'success': 'Success',
 					'goto': 'take-quiz/take-quiz',
@@ -578,11 +579,11 @@ def take_quiz(request):
 		# check user
 		user = request.user
 		authenticated = user.is_authenticated
-		print(f'user: {user}')
-		print(f'user is authenticated: {authenticated}')
+		logger.info(f'user: {user}')
+		logger.info(f'user is authenticated: {authenticated}')
 
 		payload = request.data
-		print('take-quiz:')
+		logger.info('take-quiz:')
 		pretty_print_json(payload)
 
 		# Extract category info
@@ -594,12 +595,12 @@ def take_quiz(request):
 		duration = payload.get("duration")
 		# name = payload.get("name")
 
-		# print(f'type: {type_category}')
-		# print(f'class: {class_category}')
-		# print(f'subject: {subject_category}')
-		# print(f'email: {email}')
-		# print(f'duration: {duration}')
-		# print(f'name: {name}')
+		# logger.info(f'type: {type_category}')
+		# logger.info(f'class: {class_category}')
+		# logger.info(f'subject: {subject_category}')
+		# logger.info(f'email: {email}')
+		# logger.info(f'duration: {duration}')
+		# logger.info(f'name: {name}')
 
 		try:
 			duration = float(duration)
@@ -608,21 +609,21 @@ def take_quiz(request):
 		go_test = True
 		try:
 			if go_test: # test development
-				print('in development')
+				logger.info('in development')
 				category, created = Category.objects.get_or_create(
 					id=1
 				)
 				if created:
-					print('created category')
+					logger.info('created category')
 			else:
-				print('not in development')
+				logger.info('not in development')
 				category = Category.objects.get(
 					type_category=type_category,
 					class_category=class_category,
 					subject_category=subject_category,
 				)
 		except Category.DoesNotExist:
-			print("Invalid selection, no question exist in this category yet.")
+			logger.info("Invalid selection, no question exist in this category yet.")
 			return Response(
 				{"error": "Invalid selection, no question exist in this category yet."},
 				status=status.HTTP_400_BAD_REQUEST
@@ -631,7 +632,7 @@ def take_quiz(request):
 		if go_test: # test development
 			questions_list = mock_questions # remove mock in full production
 		else:
-			print(f'category: {category}')
+			logger.info(f'category: {category}')
 			questions_qs = Question.objects.filter(
 				category=category,
 				# approved=True
@@ -646,8 +647,8 @@ def take_quiz(request):
 		# 	)
 
 
-		# print('questions:')
-		# print(questions)
+		# logger.info('questions:')
+		# logger.info(questions)
 
 		random.shuffle(questions_list)
 
@@ -663,9 +664,9 @@ def take_quiz(request):
 			if not go_test:
 				quiz_session.questions.set(selected_questions)
 
-		print(f'started_at: {quiz_session.started_at}\ncreated_at: {quiz_session.created_at}')
+		logger.info(f'started_at: {quiz_session.started_at}\ncreated_at: {quiz_session.created_at}')
 		serialized_questions = QuestionReadSerializer(selected_questions, many=True).data
-		print('serialized questions:')
+		logger.info('serialized questions:')
 		pretty_print_json(serialized_questions)
 
 	return Response({
@@ -679,7 +680,7 @@ def take_quiz(request):
 @permission_classes([AllowAny])
 def grade_quiz(request):
 	payload = request.data
-	print('grade test:')
+	logger.info('grade test:')
 	pretty_print_json(payload)
 	# return Response({'resp': 'all good'})
 	session_id = payload.get("session_id")
@@ -694,14 +695,14 @@ def grade_quiz(request):
 
 	# prevent multiple submissions
 	# if session.is_submitted:
-	# 	print(f"User tried to resubmit session {session_id}")
+	# 	logger.info(f"User tried to resubmit session {session_id}")
 	# 	return Response({"error": "You cannot submit multiple sessions"}, status=status.HTTP_400_BAD_REQUEST)
 	# session.is_submitted = True
 	# session.save()
 
 	now = timezone.now()
 	quiz_duration = round((now - session.started_at).total_seconds(), 4)
-	print(f'started_at: {session.started_at}\nnow: {now}\nquiz_duration: {quiz_duration}')
+	logger.info(f'started_at: {session.started_at}\nnow: {now}\nquiz_duration: {quiz_duration}')
 
 	# Convert list → dict for O(1) lookup
 	submitted_map = {
@@ -712,7 +713,7 @@ def grade_quiz(request):
 		for item in answers
 	}
 
-	print('dict version:')
+	logger.info('dict version:')
 	pretty_print_json(submitted_map)
 	# return Response({'resp': 'all good'})
 
@@ -720,12 +721,12 @@ def grade_quiz(request):
 	go_test = True
 	if go_test: # test development
 		questions = [item for item in mock_questions if item["id"] in submitted_map.keys()] # remove mock in full production
-		print('Questions:')
+		logger.info('Questions:')
 		pretty_print_json(questions)
 	else:
 		questions = Question.objects.filter(id__in=submitted_map.keys())
 
-		print(f'questions: {questions}')
+		logger.info(f'questions: {questions}')
 	# return Response({'resp': 'all good'})
 
 	score = 0
@@ -733,20 +734,20 @@ def grade_quiz(request):
 	quiz_answers = []
 
 	for q in questions:
-		print(f'q: {q}')
+		logger.info(f'q: {q}')
 		if go_test: # test development
 			submitted = submitted_map[q["id"]]
 		else:
 			submitted = submitted_map[q.id]
-		print(f'submitted: {submitted}')
+		logger.info(f'submitted: {submitted}')
 		selected_answer = submitted["answer"]
 		response_duration = submitted["response_duration"]
 		if go_test: # test development
 			is_correct = selected_answer == q["correct_answer"]
 		else:
 			is_correct = selected_answer == q.correct_answer
-			print(f'{q.correct_answer} = {selected_answer} ? {is_correct}')
-		# print(f'is_correct: {is_correct}')
+			logger.info(f'{q.correct_answer} = {selected_answer} ? {is_correct}')
+		# logger.info(f'is_correct: {is_correct}')
 		if is_correct:
 			score += 1
 
@@ -789,7 +790,7 @@ def grade_quiz(request):
 		"quiz_result": results,
 		"quiz_duration": quiz_duration,
 	}
-	print(f'response:')
+	logger.info(f'response:')
 	pretty_print_json(response)
 	# return Response({'resp': 'all good'})
 
@@ -839,17 +840,17 @@ def send_time(request, session_id):
 	if request.method == 'GET':
 		# Handle GET request
 		new_session = request.GET.get("session")
-		print(f'new_session: {new_session}')
-		print('session_id:', session_id)
+		logger.info(f'new_session: {new_session}')
+		logger.info('session_id:', session_id)
 		quiz_session = QuizSession.objects.filter(session_id=session_id).first()
 		if not quiz_session:
 			invalid_session = "Invalid Session."
-			print(invalid_session)
+			logger.info(invalid_session)
 			return Response({"error": invalid_session}, status=status.HTTP_226_IM_USED)
 		if new_session == "true":
 			quiz_session.started_at = timezone.now()
 			quiz_session.save()
 		start_time = quiz_session.started_at
-		print(f'start_time: {start_time}')
+		logger.info(f'start_time: {start_time}')
 
 		return Response(start_time, status=status.HTTP_200_OK)
