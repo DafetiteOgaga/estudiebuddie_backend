@@ -3,6 +3,8 @@ from django.utils.crypto import get_random_string
 from .models import User
 from school.serializers import SchoolSerializer
 from school.models import School
+import logging
+logger = logging.getLogger(__name__)
 
 # Create your serializers here.
 class UserSerializer(serializers.ModelSerializer):
@@ -39,7 +41,7 @@ class UserSerializer(serializers.ModelSerializer):
 		return obj.is_superuser
 
 	def create(self, validated_data):
-		print('creating user...')
+		logger.info('creating user...')
 		password = validated_data.pop('password', None)
 		username = validated_data.get('password', None)
 		# update other fields
@@ -49,8 +51,8 @@ class UserSerializer(serializers.ModelSerializer):
 			creating_for = True
 			password = get_random_string(8)
 			username = validated_data.get('first_name')
-			print(f'validated_data: {validated_data}')
-		print('hashing password')
+			logger.info(f'validated_data: {validated_data}')
+		logger.info('hashing password')
 		user.set_password(password) # hash password
 		if creating_for:
 			user.username = password # f'{user.email[:10]}-{get_random_string(5)}'
@@ -59,13 +61,13 @@ class UserSerializer(serializers.ModelSerializer):
 		return user
 
 	def update(self, instance, validated_data):
-		print('updating user...')
+		logger.info('updating user...')
 		password = validated_data.pop('password', None)
 		# update other fields
 		for attr, value in validated_data.items():
 			setattr(instance, attr, value)
 		if password:
-			print('hashing password')
+			logger.info('hashing password')
 			instance.set_password(password)  # hash the password
 		instance.save()
 		return instance
