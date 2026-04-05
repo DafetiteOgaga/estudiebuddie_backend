@@ -136,12 +136,12 @@ class CustomTokenRefreshView(TokenRefreshView):
         logger.info("REFRESH ENDPOINT HIT")  # log added
 
         # optional: inspect incoming data
-        logger.info("Request data:", request.data)
+        logger.info(f"Request data: {request.data}")
 
         response = super().post(request, *args, **kwargs)
 
         # optional: log response
-        logger.info("Refresh response:", response.data)
+        logger.info(f"Refresh response: {response.data}")
 
         return response
 
