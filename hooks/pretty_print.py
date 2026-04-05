@@ -1,12 +1,11 @@
 import json, logging
+logger = logging.getLogger(__name__)
 try:
     from .dont_push import mode
-    print(f"Development mode 🔨")
+    logger.info(f"Development mode 🔨")
 except Exception as e:
-    print(f"Production mode ☁")
+    logger.info(f"Production mode ☁")
     mode = 'prod'
-
-logger = logging.getLogger(__name__)
 
 def pretty_print_json(data):
     """
@@ -16,8 +15,8 @@ def pretty_print_json(data):
 
     stars_line = "*" * 40
     if mode != 'dev':
-        print(data)
-        print(stars_line)
+        logger.info(data)
+        logger.info(stars_line)
         return
 
     # If it's a JSON string, try to parse it
@@ -26,18 +25,18 @@ def pretty_print_json(data):
             data = json.loads(data)
         except json.JSONDecodeError:
             # Not JSON, print as-is
-            print(data)
-            print(stars_line)
+            logger.info(data)
+            logger.info(stars_line)
             return
 
     # dict or list → pretty print
     if isinstance(data, (dict, list)):
-        print(json.dumps(data, indent=4, sort_keys=True, default=str))
+        logger.info(json.dumps(data, indent=4, sort_keys=True, default=str))
     else:
         # int, float, bool, None, etc.
-        print(data)
+        logger.info(data)
 
-    print(stars_line)
+    logger.info(stars_line)
 
 def log_pretty(data, level=logging.DEBUG):
     """
