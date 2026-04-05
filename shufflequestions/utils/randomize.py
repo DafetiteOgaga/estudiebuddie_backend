@@ -20,8 +20,8 @@ from lxml import etree
 from school.models import ScrambleSession
 logger = logging.getLogger(__name__)
 
-# # Ensure /public folder exists
-# PUBLIC_DIR = os.path.join(settings.BASE_DIR, 'public')
+# # Ensure /media folder exists
+# PUBLIC_DIR = os.path.join(settings.BASE_DIR, 'media')
 # os.makedirs(PUBLIC_DIR, exist_ok=True)
 
 get_abbr_object = {
@@ -579,7 +579,7 @@ def Randomize(data, multiple=False, db_category=None):
 		zip_filename = f"estudiebuddie_{variant_id}.zip"
 		logger.info("ZIP filename will be:")
 		pretty_print_json(zip_filename)
-		public_dir = os.path.join(settings.BASE_DIR, 'public')
+		public_dir = os.path.join(settings.BASE_DIR, 'media')
 		dir_path = os.path.join(public_dir, variant_id)
 		os.makedirs(dir_path, exist_ok=True)
 		os.chmod(public_dir, 0o777)
@@ -929,7 +929,7 @@ def zip_all(dir_paths, zip_name=None):
 	if not zip_name:
 		zip_name = f"exam_bundle_multiple_{get_unique_id()}.zip"
 
-	public_dir = os.path.join(settings.BASE_DIR, "public")
+	public_dir = os.path.join(settings.BASE_DIR, "media")
 	zip_path = os.path.join(public_dir, zip_name)
 
 	with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as archive:
@@ -951,4 +951,4 @@ def zip_all(dir_paths, zip_name=None):
 			logger.info(f'deleting: {dir_path}')
 			shutil.rmtree(dir_path)
 
-	return f"/public/{zip_name}"
+	return f"/media/{zip_name}"

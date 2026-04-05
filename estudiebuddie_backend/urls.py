@@ -29,4 +29,6 @@ urlpatterns = [
     path('', include('defaultpage.urls')),     # For defaultpage configuration
     path('contribute/', include('contribute.urls')),     # For contribute configuration
     path('take-quiz/', include('take_quiz.urls')),     # For take_quiz configuration
-] + static('/public/', document_root=os.path.join(settings.BASE_DIR, 'public'))
+]
+
+urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
