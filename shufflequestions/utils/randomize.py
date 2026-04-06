@@ -18,6 +18,7 @@ from hooks.pretty_print import pretty_print_json
 from latex2mathml.converter import convert
 from lxml import etree
 from school.models import ScrambleSession
+from io import BytesIO
 logger = logging.getLogger(__name__)
 
 # # Ensure /media folder exists
@@ -122,10 +123,11 @@ def base64_to_png_file(base64_str):
 		base64_str = base64_str.split(",")[1]  # strip header
 
 	image_bytes = base64.b64decode(base64_str)
-	tmp_file = tempfile.NamedTemporaryFile(delete=False, suffix=".png")
-	tmp_file.write(image_bytes)
-	tmp_file.close()
-	return tmp_file.name
+	# tmp_file = tempfile.NamedTemporaryFile(delete=False, suffix=".png")
+	# tmp_file.write(image_bytes)
+	# tmp_file.close()
+	# return tmp_file.name
+	return BytesIO(image_bytes)
 
 latex_pattern = r'(\\[a-zA-Z]+.*)'
 def mathml_to_omml(mathml_string):
@@ -228,21 +230,21 @@ def build_theory_lines(theory_tree):
 
 def save_docx(
 	paragraphs,
-	file_path,
+	file_path=None,
 	add_footer=True,
 	image_map=None,
 	logo=None,
 	extracts=None):
-	logger.info('✅✅✅✅✅✅✅✅✅✅')
+	# logger.info('✅✅✅✅✅✅✅✅✅✅')
 	logger.info(f'paragraphs:')
-	pretty_print_json(paragraphs)
+	# pretty_print_json(paragraphs)
 	# logger.info(f'extracts:')
 	# pretty_print_json(extracts)
 	logger.info(f'file_path: {file_path}')
 	logger.info(f'add_footer: {add_footer}')
 	logger.info(f'image_map: {image_map}')
 	logger.info(f'logo: {logo}')
-	logger.info('❎❎❎❎❎❎❎❎❎❎')
+	# logger.info('❎❎❎❎❎❎❎❎❎❎')
 	# #####################
 	# logger.info("data to use for file:")
 	# pretty_print_json(paragraphs)
@@ -519,7 +521,11 @@ def save_docx(
 		footer_para.style.font.size = Pt(10)
 		footer_para.alignment = 1  # center
 
-	doc.save(file_path)
+	# doc.save(file_path)
+	question_buffer = BytesIO()
+	doc.save(question_buffer)
+	question_buffer.seek(0)
+	return question_buffer
 
 def get_unique_id():
 	random_str = ''.join(random.choices(string.ascii_lowercase + string.digits, k=4))
@@ -581,9 +587,9 @@ def Randomize(data, multiple=False, db_category=None):
 		pretty_print_json(zip_filename)
 		public_dir = os.path.join(settings.BASE_DIR, 'media')
 		dir_path = os.path.join(public_dir, variant_id)
-		os.makedirs(dir_path, exist_ok=True)
-		os.chmod(public_dir, 0o777)
-		os.chmod(dir_path, 0o777)
+		# os.makedirs(dir_path, exist_ok=True)
+		# os.chmod(public_dir, 0o777)
+		# os.chmod(dir_path, 0o777)
 
 		# Generate question types (A-Z)
 		types = generate_alphabets(int(data['noOfTypes']))
@@ -591,14 +597,23 @@ def Randomize(data, multiple=False, db_category=None):
 		pretty_print_json(types)
 
 		# compare the length of incoming questions to the saved
-		saved_questions_length = len(saved_shuffle_record["A"]["question_order"]) if (saved_shuffle_record and not gen_new) else 0
+		saved_questions_length = 0
+		if saved_shuffle_record and not gen_new:
+			saved_questions_length = len(saved_shuffle_record.get("A", {}).get("question_order", []))
 		logger.info(f'saved_questions_length: {saved_questions_length}')
-		incoming_questions_length = len(data.get('postQuestions', data.get('questions')).values())
+		# incoming_questions_length = len(data.get('postQuestions', data.get('questions')).values())
+		questions_data_ = data.get('postQuestions') or data.get('questions') or {}
+		# incoming_questions_length = len(questions_data_.values() if isinstance(questions_data_, dict) else questions_data_)
+		if isinstance(questions_data_, dict):
+			incoming_questions_length = len(list(questions_data_.values()))
+		else:
+			incoming_questions_length = len(questions_data_)
 		logger.info(f'incoming_questions_length: {incoming_questions_length}')
 		reshuffle = saved_questions_length != incoming_questions_length
 		# Generate question and answer files for each type
 		all_shuffle_records = {}
 		shuffle_record = None
+		doc_files = []
 		for i, type_code in enumerate(types):
 			logger.info(f"Generating files for question type: {type_code}")
 			# logger.info(f"data: {data}")
@@ -688,6 +703,8 @@ def Randomize(data, multiple=False, db_category=None):
 				# logger.info(f"Question Data:")
 				# pretty_print_json(q)
 				question_obj = [qo for qo in q if qo]
+				if not question_obj:
+					continue
 				q = question_obj[0]
 				# logger.info('extrated question:')
 				# pretty_print_json(q)
@@ -798,9 +815,9 @@ def Randomize(data, multiple=False, db_category=None):
 			logger.info(f"Creating directories for type {type_code}")
 			ans_dir = os.path.join(dir_path, 'answers')
 			logger.info(f"Creating answer directories for type {type_code}")
-			os.makedirs(quest_dir, exist_ok=True)
-			os.makedirs(ans_dir, exist_ok=True)
-			question_path_for_docx = os.path.join(quest_dir, f"Question_type_{type_code}.docx")
+			# os.makedirs(quest_dir, exist_ok=True)
+			# os.makedirs(ans_dir, exist_ok=True)
+			# question_path_for_docx = os.path.join(quest_dir, f"Question_type_{type_code}.docx")
 			# question_path_for_pdf = os.path.join(quest_dir, f"Exam_type_{type_code}.pdf")
 
 			# build image map
@@ -809,6 +826,8 @@ def Randomize(data, multiple=False, db_category=None):
 				# logger.info("q question:")
 				# pretty_print_json(q)
 				question_obj = [qo for qo in q if qo]
+				if not question_obj:
+					continue
 				extracted_question_with_image = question_obj[0]
 				# logger.info('✨✨✨✨✨✨✨✨✨000')
 				
@@ -865,14 +884,15 @@ def Randomize(data, multiple=False, db_category=None):
 				question_lines.extend(theory_lines)
 			# logger.info('extracted_full_questions_with_types:')
 			# pretty_print_json(extracted_full_questions_with_types)
-			save_docx(
+			doc_buffer = save_docx(
 				question_lines,
-				question_path_for_docx,
+				None, # question_path_for_docx,
 				add_footer=False,
 				image_map=image_map,
 				logo=data.get("logo", None),
 				extracts=extracted_full_questions_with_types,
 			)
+			doc_files.append((f"Question_type_{type_code}.docx", doc_buffer))
 
 			# # pdf creation
 			# try:
@@ -885,70 +905,82 @@ def Randomize(data, multiple=False, db_category=None):
 			# 	logger.info(f"Saving question text file for type {type_code}")
 			# 	f.write("\n".join(question_lines))
 
-			with open(os.path.join(ans_dir, f"Answers_type_{type_code}.txt"), "w") as f:
-				logger.info(f"Saving answer key text file for type {type_code}")
-				f.write("\n".join(answer_key))
+			# with open(os.path.join(ans_dir, f"Answers_type_{type_code}.txt"), "w") as f:
+			# 	logger.info(f"Saving answer key text file for type {type_code}")
+			# 	f.write("\n".join(answer_key))
+			answer_buffer = BytesIO()
+			answer_buffer.write("\n".join(answer_key).encode())
+			answer_buffer.seek(0)
+			doc_files.append((f"Answers_type_{type_code}.txt", answer_buffer))
+
 		logger.info("FULL SHUFFLE RECORD")
+		logger.info(f'doc_files:')
+		pretty_print_json(doc_files)
 		pretty_print_json(all_shuffle_records)
 		if not all_shuffle_records:
 			all_shuffle_records = None
 
 		# Zip the directory if not batching
 		if not multiple:
-			# zip_path = os.path.join(public_dir, zip_filename)
-			# logger.info(f"Creating ZIP archive at: {zip_path}")
-			# with zipfile.ZipFile(zip_path, 'w', zipfile.ZIP_DEFLATED) as archive:
-			# 	logger.info(f"Adding files to ZIP archive: {zip_path}")
-			# 	for foldername, _, filenames in os.walk(dir_path):
-			# 		logger.info(f"Walking through folder: {foldername}")
-			# 		for filename in filenames:
-			# 			logger.info(f"Adding file to archive: {filename}")
-			# 			file_path = os.path.join(foldername, filename)
-			# 			arcname = os.path.relpath(file_path, os.path.join(dir_path, '..'))
-			# 			archive.write(file_path, arcname)
-
-			# # schedule_deletion(zip_path, dir_path)
-
-			# return f"/public/{zip_filename}"
 			logger.info('NOT MULTIPLE')
-			return zip_all(dir_paths=[dir_path], zip_name=zip_filename), all_shuffle_records
+			# return zip_all(dir_paths=[dir_path], zip_name=zip_filename), all_shuffle_records
+			# return zip_all(doc_files=doc_files, zip_name=zip_filename), all_shuffle_records
+			zip_buffer, zip_name = zip_all(doc_files=doc_files, zip_name=zip_filename, folder_name=subject)
+			return zip_buffer, zip_name, all_shuffle_records
 
 		# if batch
 		logger.info('YEAH, MULTIPLE')
 		return {
 			"variant_id": variant_id,
-			"dir_path": dir_path,
+			"doc_files": doc_files,
+			"folder_name": subject,
 		}, all_shuffle_records
 
 	except Exception as e:
-		logger.info(f"Error generating exam bundle: {get_timestamp()} =>", e)
+		logger.exception(f"Error generating exam bundle: {get_timestamp()} =>", e)
 		raise Exception("Failed to generate exam bundle")
 
 
-def zip_all(dir_paths, zip_name=None):
+# def zip_all(dir_paths, zip_name=None):
+def zip_all(doc_files, zip_name=None, folder_name=None, folder_names=None):
 	if not zip_name:
 		zip_name = f"exam_bundle_multiple_{get_unique_id()}.zip"
 
-	public_dir = os.path.join(settings.BASE_DIR, "media")
-	zip_path = os.path.join(public_dir, zip_name)
+	# public_dir = os.path.join(settings.BASE_DIR, "media")
+	# zip_path = os.path.join(public_dir, zip_name)
+	zip_buffer = BytesIO()
+	is_multiple = isinstance(doc_files[0], list)
+	logger.info(f'is_multiple: {is_multiple}')
 
-	with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as archive:
-		for dir_path in dir_paths:
-			for foldername, _, filenames in os.walk(dir_path):
-				for filename in filenames:
-					file_path = os.path.join(foldername, filename)
+	with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED, compresslevel=6) as archive:
+		# MULTIPLE OPERATIONS (nested structure)
+		if doc_files and is_multiple:
 
-					# keep folder structure inside zip
-					arcname = os.path.relpath(
-						file_path,
-						os.path.dirname(dir_path)
-					)
-					archive.write(file_path, arcname)
+			for idx, operation_files in enumerate(doc_files, start=1):
+				if folder_names and idx - 1 < len(folder_names):
+					folder = folder_names[idx - 1]
+				else:
+					folder = f"operation_{idx}"
+				folder = folder.replace(" ", "_").replace("-", "_")
 
-	# CLEANUP (after zip is closed)
-	for dir_path in dir_paths:
-		if os.path.exists(dir_path):
-			logger.info(f'deleting: {dir_path}')
-			shutil.rmtree(dir_path)
+				for filename, doc_buffer in operation_files:
+					arcname = f"{folder}/{filename}"
+					archive.writestr(arcname, doc_buffer.getvalue())
+					doc_buffer.close()
 
-	return f"/media/{zip_name}"
+		else:
+			# SINGLE OPERATION
+			for filename, doc_buffer in doc_files:
+				archive.writestr(filename, doc_buffer.getvalue())
+				doc_buffer.close()
+
+	# # CLEANUP (after zip is closed)
+	# for dir_path in dir_paths:
+	# 	if os.path.exists(dir_path):
+	# 		logger.info(f'deleting: {dir_path}')
+	# 		shutil.rmtree(dir_path)
+
+	# return f"/media/{zip_name}"
+	zip_buffer.seek(0)
+
+	return zip_buffer, zip_name
