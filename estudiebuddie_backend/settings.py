@@ -199,6 +199,11 @@ CSRF_TRUSTED_ORIGINS = [
     'https://estudiebuddie-backend.fly.dev',
     'https://estudiebuddie-frontend.pages.dev',
 ]
+# allwed headers
+CORS_EXPOSE_HEADERS = [
+    "Content-Disposition",
+    "Content-Length",
+]
 
 IMAGEKIT_PRIVATE_KEY = os.getenv("IMAGEKIT_PRIVATE_KEY")
 # if not IMAGEKIT_PRIVATE_KEY:
