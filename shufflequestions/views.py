@@ -17,6 +17,8 @@ import json, logging
 from django.db import transaction
 from django.db.models import Q
 from django.utils import timezone
+from django.http import HttpResponse
+from urllib.parse import quote
 logger = logging.getLogger(__name__)
 
 def handle_shuffle_record(data):
@@ -67,6 +69,18 @@ def handle_shuffle_record(data):
 		logger.info('shuffle record saved!')
 	saved_question.save()
 
+def pushDownloadFromBuffer(zip_buffer, zip_name):
+	zip_buffer.seek(0)
+	response = HttpResponse(
+		zip_buffer.read(),
+		content_type="application/zip"
+	)
+	response["Content-Disposition"] = f"attachment; filename*=UTF-8''{quote(zip_name)}"
+	response["Content-Length"] = zip_buffer.getbuffer().nbytes
+	logger.info(f"response:")
+	pretty_print_json(response.items())
+	return response
+
 # Create your views here.
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
@@ -91,8 +105,9 @@ def generate_exam_bundle(request):
 			"session_term": parsed_data["term"],
 			"session_class": parsed_data["class"],
 		}
-		file_url, shuffle_record = Randomize(parsed_data, db_category=db_category)
-		logger.info(f"Generated file URL: {file_url}")
+		# file_url, shuffle_record = Randomize(parsed_data, db_category=db_category)
+		zip_buffer, zip_name, shuffle_record = Randomize(parsed_data, db_category=db_category)
+		logger.info(f"Generated file URL: {zip_name}")
 		logger.info('free usage')
 
 		logger.info(f'user: {user}')
@@ -108,58 +123,13 @@ def generate_exam_bundle(request):
 				"shuffle_record": shuffle_record
 			})
 
-		# save link for future downloads
-		ScrambleLinks.objects.create(
-			user=request.user,
-			link=file_url,
-		)
-		return Response({"success": "Success", "downloadLink": file_url})
-
-@api_view(['GET'])
-@permission_classes([IsAuthenticated])
-def get_links(request):
-	cleanup_old_zips()
-	if request.method == 'GET':
-		user = request.user
-		logger.info(f'user: {user}')
-
-		links = ScrambleLinks.objects.filter(user=user).order_by('-created_at')[:5]
-		# logger.info(f'links: {links}')
-		serialized_links = ScrambleLinksSerializer(links, many=True).data
-		logger.info(f'serialized_links:')
-		pretty_print_json(serialized_links)
-		return Response(serialized_links, status=status.HTTP_200_OK)
-
-@api_view(['GET'])
-@permission_classes([IsAuthenticated])
-def get_submitted(request):
-	cleanup_old_zips()
-	user = request.user
-	school = user.school
-	qp = request.query_params
-	logger.info(f'qp: {qp}')
-	teacher_id = qp.get("teacherID", None)
-	if teacher_id:
-		try:
-			teacher_id = int(teacher_id)
-		except:
-			logger.info("Oopsy! Teacher/Admin not specified.")
-			return Response({"error": "Oopsy! Teacher/Admin not specified."})
-	logger.info(f'teacher_id: {teacher_id}')
-	logger.info(f'user: {user}\nschool: {school}')
-	if user.role not in ["admin", "head"]:
-		logger.info('you have no permision to view this')
-		return Response({"error": "you do not have permission for this action."})
-	submitted_objs = SubmitedQuestions.objects.filter(
-		school=school,
-		teacher_id=teacher_id
-	).order_by('-updated_at')
-	serialized_objs = SubmittedQuestionsReadSerializer(
-		submitted_objs, many=True
-	).data
-	logger.info('checked response:')
-	pretty_print_json(serialized_objs)
-	return Response(serialized_objs, status=status.HTTP_200_OK)
+		# save link to disk or cloud for future downloads
+		# ScrambleLinks.objects.create(
+		# 	user=request.user,
+		# 	link=file_url,
+		# )
+		# return Response({"success": "Success", "downloadLink": file_url})
+		return pushDownloadFromBuffer(zip_buffer, zip_name)
 
 @api_view(['GET', 'POST'])
 @permission_classes([IsAuthenticated])
@@ -304,6 +274,7 @@ def generate_exam_bundle_for_school(request):
 			logger.info(f'cleaned_ids: {cleaned_ids}')
 
 			many_payloads = []
+			many_folder_names = []
 			shuffle_record_dict = {}
 			for _id in cleaned_ids:
 				# return Response({"error": "all good"})
@@ -320,7 +291,8 @@ def generate_exam_bundle_for_school(request):
 				db_category["session_term"] = parsed_data_m["term"]
 				db_category["session_class"] = parsed_data_m["class"]
 				result, shuffle_record = Randomize(parsed_data_m, multiple=True, db_category=db_category)
-				many_payloads.append(result["dir_path"])
+				many_payloads.append(result["doc_files"])
+				many_folder_names.append(result["folder_name"])
 				if shuffle_record:
 					handle_shuffle_record_arg["parsed_data"] = parsed_data_m
 					handle_shuffle_record_arg["shuffle_record"] = shuffle_record
@@ -328,14 +300,18 @@ def generate_exam_bundle_for_school(request):
 				shuffle_record_dict.setdefault(_id, shuffle_record)
 
 			logger.info(f'cleaned_ids: {cleaned_ids}')
-			logger.info(f'many_payloads: {many_payloads}')
+			logger.info(f'many_payloads:')
+			pretty_print_json(many_payloads)
+			logger.info(f'many_folder_names:')
+			pretty_print_json(many_folder_names)
 			# zip all dirs once
-			file_url_m = zip_all(many_payloads)
-			logger.info(f"Generated file URL: {file_url_m}")
+			zip_buffer_m, zip_name_m = zip_all(many_payloads, folder_names=many_folder_names)
+			logger.info(f"Generated file URL: {zip_name_m}")
 			logger.info('multiple usage (authenticated)')
 			logger.info(f'shuffle_record_dict:')
 			pretty_print_json(shuffle_record_dict)
-			return Response({"downloadLink": file_url_m}, status=status.HTTP_200_OK)
+			# return Response({"downloadLink": file_url_m}, status=status.HTTP_200_OK)
+			return pushDownloadFromBuffer(zip_buffer_m, zip_name_m)
 
 		if not submitted_id:
 			return Response(
@@ -364,9 +340,10 @@ def generate_exam_bundle_for_school(request):
 		db_category["session_subject"] = parsed_data["subject"]
 		db_category["session_term"] = parsed_data["term"]
 		db_category["session_class"] = parsed_data["class"]
-		file_url, shuffle_record = Randomize(parsed_data, db_category=db_category)
+		# file_url, shuffle_record = Randomize(parsed_data, db_category=db_category)
+		zip_buffer, zip_name, shuffle_record = Randomize(parsed_data, db_category=db_category)
 
-		logger.info(f"Generated file URL: {file_url}")
+		logger.info(f"Generated file URL: {zip_name}")
 		logger.info('single usage (authenticated)')
 
 		# # save link for future downloads
@@ -379,7 +356,8 @@ def generate_exam_bundle_for_school(request):
 			handle_shuffle_record_arg["shuffle_record"] = shuffle_record
 			handle_shuffle_record(handle_shuffle_record_arg)
 
-		return Response({"success": "Success", "downloadLink": file_url})
+		# return Response({"success": "Success", "downloadLink": file_url})
+		return pushDownloadFromBuffer(zip_buffer, zip_name)
 
 	if request.method == 'POST':
 		logger.info(f'in post:')
@@ -489,3 +467,49 @@ def generate_exam_bundle_for_school(request):
 					"success": "Submit updated" if is_update else "Submit success",
 					"has_submitted": saved_question.has_submitted,
 				}, status=status.HTTP_200_OK if is_update else status.HTTP_201_CREATED)
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def get_links(request):
+	cleanup_old_zips()
+	if request.method == 'GET':
+		user = request.user
+		logger.info(f'user: {user}')
+
+		links = ScrambleLinks.objects.filter(user=user).order_by('-created_at')[:5]
+		# logger.info(f'links: {links}')
+		serialized_links = ScrambleLinksSerializer(links, many=True).data
+		logger.info(f'serialized_links:')
+		pretty_print_json(serialized_links)
+		return Response(serialized_links, status=status.HTTP_200_OK)
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def get_submitted(request):
+	cleanup_old_zips()
+	user = request.user
+	school = user.school
+	qp = request.query_params
+	logger.info(f'qp: {qp}')
+	teacher_id = qp.get("teacherID", None)
+	if teacher_id:
+		try:
+			teacher_id = int(teacher_id)
+		except:
+			logger.info("Oopsy! Teacher/Admin not specified.")
+			return Response({"error": "Oopsy! Teacher/Admin not specified."})
+	logger.info(f'teacher_id: {teacher_id}')
+	logger.info(f'user: {user}\nschool: {school}')
+	if user.role not in ["admin", "head"]:
+		logger.info('you have no permision to view this')
+		return Response({"error": "you do not have permission for this action."})
+	submitted_objs = SubmitedQuestions.objects.filter(
+		school=school,
+		teacher_id=teacher_id
+	).order_by('-updated_at')
+	serialized_objs = SubmittedQuestionsReadSerializer(
+		submitted_objs, many=True
+	).data
+	logger.info('checked response:')
+	pretty_print_json(serialized_objs)
+	return Response(serialized_objs, status=status.HTTP_200_OK)
