@@ -7,7 +7,8 @@ from rest_framework.exceptions import ValidationError
 from hooks.pretty_print import pretty_print_json
 from root_utils.formDataToDict import print_formdata_content, cleanup_old_zips, parse_nested_formdata
 from .models import ScrambleSession
-from .serializers import ScrambleSessionReadSerializer, ScrambleSessionWriteSerializer
+from .serializers import ScrambleSessionReadSerializer, ScrambleSessionWriteSerializer, SchoolSerializer
+from user.serializers import UserSerializer
 import re, logging
 from collections import defaultdict
 from django.db import transaction
@@ -379,3 +380,42 @@ def remember_sessions(request, detailed_resp):
 	logger.info('whats being returned:')
 	pretty_print_json(list_of_data)
 	return Response(list_of_data, status=status.HTTP_200_OK)
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def update_school(request):
+	cleanup_old_zips()
+	if request.method == 'POST':
+		head = request.user
+		logger.info(f'user: {head}')
+		logger.info(f'role: {head.role}')
+		update_payload = request.data
+		logger.info(f'update_payload:')
+		pretty_print_json(update_payload)
+		if head.role != "head":
+			logger.info("You do not have permission for this action.")
+			return Response({"erreo": "You do not have permission for this action."}, status=status.HTTP_400_BAD_REQUEST)
+		school = getattr(head, "school", None)
+		if not school:
+			logger.info("Oopsy! No school found.")
+			return Response({"error": "Oopsy! No school found."}, status=status.HTTP_400_BAD_REQUEST)
+		logger.info(f'school: {school}')
+		serialized_school = SchoolSerializer(
+			school,
+			data=update_payload,
+			partial=True)
+		if serialized_school.is_valid():
+			logger.info("Data that WILL be saved (not yet saved):")
+			pretty_print_json(serialized_school.validated_data)
+			# return Response({"ok": "all good"}, status=status.HTTP_200_OK)
+			serialized_school.save()
+			# head.school = serialized_school.data
+			head_serializer = UserSerializer(head).data
+			logger.info('head_serializer')
+			pretty_print_json(head_serializer)
+		else:
+			not_saved = "Unable to update school information"
+			logger.info(f'serialized_school error: {serialized_school.errors}')
+			logger.info(f'error message: {serialized_school.error_messages}')
+			return Response({"error": not_saved}, status=status.HTTP_400_BAD_REQUEST)
+		return Response(head_serializer, status=status.HTTP_200_OK)
