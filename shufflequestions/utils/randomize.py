@@ -1,5 +1,5 @@
 # your_app/utils/randomize.py
-import os, shutil, zipfile, random, string, re, uuid, base64, tempfile, logging
+import os, shutil, zipfile, random, string, re, uuid, base64, tempfile, logging, requests
 from datetime import datetime
 from threading import Timer
 from docx import Document
@@ -19,6 +19,7 @@ from latex2mathml.converter import convert
 from lxml import etree
 from school.models import ScrambleSession
 from io import BytesIO
+# from django.core.files.uploadedfile import SimpleUploadedFile
 logger = logging.getLogger(__name__)
 
 # # Ensure /media folder exists
@@ -82,6 +83,53 @@ get_abbr_object = {
 		"3rd": "3T",
 	}
 }
+
+# def fetch_image(has_school_account, parsed_data):
+# 	try:
+# 		logger.info('trying to fetch logo')
+# 		response = requests.get(
+# 			has_school_account.school_logo_url,
+# 			timeout=5
+# 		)
+
+# 		if response.status_code == 200:
+# 			content = response.content
+# 			logger.info(f"Content-Type: {response.headers.get('Content-Type')}")
+# 			logger.info(f"First 20 bytes (hex): {content[:20].hex()}")
+# 			logger.info(f"Content length: {len(content)}")
+# 			logger.info(response.headers.get("Content-Type"))
+# 			logger.info(response.content[:20])  # first bytes
+# 			# file_name = f'_{has_school_account.school_logo_fileId or "logo"}.png'
+# 			content_type = response.headers.get("Content-Type", "image/png")
+
+# 			logger.info(f'content_type: {content_type}')
+# 			extension = content_type.split("/")[-1]
+# 			logger.info(f'extension: {extension}')
+# 			file_name = f"{has_school_account.school_logo_fileId or 'logo'}.{extension}"
+
+# 			logger.info(f'file_name: {file_name}')
+
+# 			# Convert file object
+# 			logo_file = SimpleUploadedFile(
+#                 name=file_name,
+#                 content=response.content,
+#                 content_type=content_type
+#             )
+# 			# logo_file = ContentFile(response.content, name=file_name)
+
+# 			# Inject into parsed_data
+# 			parsed_data["logo"] = logo_file
+
+# 			logger.info("School logo fetched and added to parsed_data")
+# 			pretty_print_json(parsed_data)
+# 			return parsed_data
+
+# 		else:
+# 			logger.warning(f"Failed to fetch logo: {response.status_code}")
+
+# 	except Exception as e:
+# 		logger.error(f"Error fetching school logo: {str(e)}")
+
 def get_abbr(category, value):
 	logger.info(f'value: {value}')
 	if not value:
@@ -92,13 +140,13 @@ def get_abbr(category, value):
 	)
 
 def remove_curly_braces(math_line):
-    if math_line.startswith("{") and math_line.endswith("}"):
-        logger.info(f'original math line: {math_line}')
-        math_line = math_line[1:-1]
-        logger.info(f'curly removed: {math_line}')
-        return remove_curly_braces(math_line) # recursive
-    logger.info(f'no_curly: {math_line}')
-    return math_line  # base case
+	if math_line.startswith("{") and math_line.endswith("}"):
+		logger.info(f'original math line: {math_line}')
+		math_line = math_line[1:-1]
+		logger.info(f'curly removed: {math_line}')
+		return remove_curly_braces(math_line) # recursive
+	logger.info(f'no_curly: {math_line}')
+	return math_line  # base case
 
 def get_shuffle_record(db_category):
 	logger.info('checking ')
@@ -173,60 +221,60 @@ def generate_alphabets(n):
 	return [chr(65 + i) for i in range(n)]  # A, B, C, D...
 
 def normalize_children(children):
-    if isinstance(children, dict):
-        # convert { "0": [...], "1": [...] } → flat list
-        result = []
-        for key in sorted(children.keys(), key=int):
-            result.extend(children[key])
-        return result
-    return children or []
+	if isinstance(children, dict):
+		# convert { "0": [...], "1": [...] } → flat list
+		result = []
+		for key in sorted(children.keys(), key=int):
+			result.extend(children[key])
+		return result
+	return children or []
 
 def to_alphabet(n):
-    return chr(97 + n)
+	return chr(97 + n)
 
 def to_roman(n):
-    romans = ["i","ii","iii","iv","v","vi","vii","viii","ix","x"]
-    return romans[n] if n < len(romans) else str(n)
+	romans = ["i","ii","iii","iv","v","vi","vii","viii","ix","x"]
+	return romans[n] if n < len(romans) else str(n)
 
 def get_label(index, depth):
-    styles = ["numeric", "alphabet", "roman"]
-    style = styles[depth % len(styles)]
+	styles = ["numeric", "alphabet", "roman"]
+	style = styles[depth % len(styles)]
 
-    if style == "numeric":
-        return str(index + 1)
-    elif style == "alphabet":
-        return to_alphabet(index)
-    elif style == "roman":
-        return to_roman(index)
+	if style == "numeric":
+		return str(index + 1)
+	elif style == "alphabet":
+		return to_alphabet(index)
+	elif style == "roman":
+		return to_roman(index)
 
-    return str(index + 1)
+	return str(index + 1)
 
 def get_full_label(path, index, depth):
-    current = get_label(index, depth)
-    return ".".join(path + [current])
+	current = get_label(index, depth)
+	return ".".join(path + [current])
 
 def build_theory_lines(theory_tree):
-    lines = []
+	lines = []
 
-    def walk(nodes, depth=0, path=None):
-        if path is None:
-            path = []
+	def walk(nodes, depth=0, path=None):
+		if path is None:
+			path = []
 
-        nodes = normalize_children(nodes)
+		nodes = normalize_children(nodes)
 
-        for index, node in enumerate(nodes):
-            label = get_full_label(path, index, depth)
+		for index, node in enumerate(nodes):
+			label = get_full_label(path, index, depth)
 
-            # Add question line
-            lines.append(f"{label} {node.get('text', '')}")
+			# Add question line
+			lines.append(f"{label} {node.get('text', '')}")
 
-            children = normalize_children(node.get("children"))
+			children = normalize_children(node.get("children"))
 
-            if children:
-                walk(children, depth + 1, path + [get_label(index, depth)])
+			if children:
+				walk(children, depth + 1, path + [get_label(index, depth)])
 
-    walk(theory_tree)
-    return lines
+	walk(theory_tree)
+	return lines
 
 def save_docx(
 	paragraphs,
@@ -296,16 +344,30 @@ def save_docx(
 	# ============================
 	# LOGO (HEADER - FIRST PAGE ONLY)
 	# ============================
-	if logo:
+	if logo and hasattr(logo, "read"):
+		logger.info('yes logo is avail')
+		# logo.seek(0)  # reset
+		# logger.info('yes logo is avail11')
+
+		# image_stream = BytesIO(logo.read())  # ✅ convert to clean stream
+		# logger.info('yes logo is avail222')
+		# image_stream.seek(0)
+		# logger.info('yes logo is avail333')
+		# logger.info(f'image_stream: {image_stream}')
+
 		logo_para = header.add_paragraph()
+		# logger.info('yes logo is avail444')
 		logo_para.alignment = WD_ALIGN_PARAGRAPH.CENTER
+		# logger.info('yes logo is avail555')
 
 		run = logo_para.add_run()
+		# logger.info('yes logo is avail666')
 		run.add_picture(
 			logo,
 			width=Inches(0.7)  # adjust if needed
 		)
 
+		logger.info('yes logo is avail777')
 		logo_para.paragraph_format.space_before = Pt(0)
 		logo_para.paragraph_format.space_after = Pt(1)
 		# run = p.add_run("\t")
@@ -315,24 +377,54 @@ def save_docx(
 		# )
 	# header_para = header.paragraphs[0]
 
+	# logger.info('yes logo is avail888')
 	header_lines = []
 	body_start_index = 0
+	field_map = [
+		"school",
+		"email",
+		"address",
+		"subject",
+		"class",
+		"duration",
+		"instruction",
+		"variant",
+		"type",
+		"term",
+	]
+	data = {v: None for v in field_map}
 
 	for i, line in enumerate(paragraphs):
 		if line == "":
 			body_start_index = i + 1
 			break
+		for field in field_map:
+			if line.lower().startswith(field):
+				data[field] = line.split(":::")[1]
 		header_lines.append(line)
 
+	logger.info('data:')
+	pretty_print_json(data)
+
+	school = data.get("school")
+	email = data.get("email")
+	address = data.get("address")
+	subject = data.get("subject")
+	clazz = data.get("class")
+	duration = data.get("duration")
+	instruction = data.get("instruction")
+	variant = data.get("variant")
+	qtype = data.get("type")
+	term = data.get("term")
 	# Clear default paragraph
 	# header.paragraphs[0].clear()
 	# header.paragraphs[0].clear()
 
-	school = None
-	if len(header_lines)==8:
-		school, subject, clazz, term, duration, instruction, variant, qtype = header_lines
-	else:
-		subject, clazz, term, duration, instruction, variant, qtype = header_lines
+	# school = None
+	# if len(header_lines)==8:
+	# 	school, subject, clazz, term, duration, instruction, variant, qtype = header_lines
+	# else:
+	# 	subject, clazz, term, duration, instruction, variant, qtype = header_lines
 
 	# --- School name (centered & bold)
 	if school:
@@ -345,47 +437,91 @@ def save_docx(
 		p.paragraph_format.line_spacing = 0.5
 		p.paragraph_format.line_spacing_rule = WD_LINE_SPACING.SINGLE
 
-	# --- Subject (left)
+		if email:
+			# --- Email (left)
+			p = header.add_paragraph()
+			p.add_run(email)
+			p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+			p.paragraph_format.space_before = Pt(0)
+			p.paragraph_format.space_after = Pt(2)
+			p.paragraph_format.line_spacing = 0.5
+			p.paragraph_format.line_spacing_rule = WD_LINE_SPACING.SINGLE
+
+		if address:
+			# --- Address (left)
+			p = header.add_paragraph()
+			p.add_run(address)
+			p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+			p.paragraph_format.space_before = Pt(0)
+			p.paragraph_format.space_after = Pt(2)
+			p.paragraph_format.line_spacing = 0.5
+			p.paragraph_format.line_spacing_rule = WD_LINE_SPACING.SINGLE
+
+
+	# --- Subject (left) | Type (center) | Variant ID (right)
 	p = header.add_paragraph()
 	p.add_run(subject).bold = True
+	p.add_run("\t" * 3)
+	p.add_run(qtype)
+	p.add_run("\t" * 3)
+	p.add_run(variant)
+	# p.add_run("\t" * 3)
+	# p.add_run(qtype)
 	p.alignment = WD_ALIGN_PARAGRAPH.LEFT
 	p.paragraph_format.space_before = Pt(0)
 	p.paragraph_format.space_after = Pt(2)
 	p.paragraph_format.line_spacing = 0.5
 	p.paragraph_format.line_spacing_rule = WD_LINE_SPACING.SINGLE
 
-	# --- Term (left) | Class (right)
+	# --- Term (left) | Class (center) | Duration (right)
 	p = header.add_paragraph()
 	p.add_run(term)
-	p.add_run("\t" * 8)
+	p.add_run("\t" * 5)
 	p.add_run(clazz)
-	p.alignment = WD_ALIGN_PARAGRAPH.LEFT
-	p.paragraph_format.space_before = Pt(0)
-	p.paragraph_format.space_after = Pt(2)
-	p.paragraph_format.line_spacing = 0.5
-	p.paragraph_format.line_spacing_rule = WD_LINE_SPACING.SINGLE
-
-	# --- Variant ID (left)
-	p = header.add_paragraph()
-	p.add_run(variant)
-	p.paragraph_format.space_before = Pt(0)
-	p.paragraph_format.space_after = Pt(2)
-	p.paragraph_format.line_spacing = 0.5
-	p.paragraph_format.line_spacing_rule = WD_LINE_SPACING.SINGLE
-
-	# --- Duration (left) | Type (center) | Instruction (right)
-	p = header.add_paragraph()
+	p.add_run("\t" * 4)
 	p.add_run(duration)
-	p.add_run("\t" * 2)
-	p.add_run(qtype)
+	# p.alignment = WD_ALIGN_PARAGRAPH.LEFT
+	# p.paragraph_format.space_before = Pt(0)
+	# p.paragraph_format.space_after = Pt(2)
+	# p.paragraph_format.line_spacing = 0.5
+	# p.paragraph_format.line_spacing_rule = WD_LINE_SPACING.SINGLE
+	# p.add_run("\t" * 3)
+	# p.add_run(qtype)
 	p.alignment = WD_ALIGN_PARAGRAPH.LEFT
 	p.paragraph_format.space_before = Pt(0)
 	p.paragraph_format.space_after = Pt(2)
 	p.paragraph_format.line_spacing = 0.5
 	p.paragraph_format.line_spacing_rule = WD_LINE_SPACING.SINGLE
-	p.add_run("\t" * 1)
+
+	# # --- Variant ID (left)
+	# p = header.add_paragraph()
+	# p.add_run(variant)
+	# p.paragraph_format.space_before = Pt(0)
+	# p.paragraph_format.space_after = Pt(2)
+	# p.paragraph_format.line_spacing = 0.5
+	# p.paragraph_format.line_spacing_rule = WD_LINE_SPACING.SINGLE
+
+	# --- Duration (left) | Variant ID (right)
+	# p = header.add_paragraph()
+	# p.add_run(duration)
+	# # p.add_run("\t" * 4)
+	# # p.add_run(variant)
+	# # p.alignment = WD_ALIGN_PARAGRAPH.LEFT
+	# p.paragraph_format.space_before = Pt(0)
+	# p.paragraph_format.space_after = Pt(2)
+	# p.paragraph_format.line_spacing = 0.5
+	# p.paragraph_format.line_spacing_rule = WD_LINE_SPACING.SINGLE
+	# # p.add_run("\t" * 1)
+	# p.add_run(instruction).bold = True
+	# p.alignment = WD_ALIGN_PARAGRAPH.LEFT
+	# p.paragraph_format.space_before = Pt(0)
+	# p.paragraph_format.space_after = Pt(2)
+	# p.paragraph_format.line_spacing = 0.5
+	# p.paragraph_format.line_spacing_rule = WD_LINE_SPACING.SINGLE
+
+	# --- Instruction (left)
+	p = header.add_paragraph()
 	p.add_run(instruction).bold = True
-	p.alignment = WD_ALIGN_PARAGRAPH.LEFT
 	p.paragraph_format.space_before = Pt(0)
 	p.paragraph_format.space_after = Pt(2)
 	p.paragraph_format.line_spacing = 0.5
@@ -403,8 +539,11 @@ def save_docx(
 	sectPr.append(cols)
 
 	options = []
+	is_theory = False
 	# --- Add question body content (flows across columns & pages)
 	for para in paragraphs[body_start_index:]:
+		# if not para.strip():
+		# 	continue
 		# logger.info(f'para: {para}')
 		# Detect image marker
 		if re.match(r'^A\.\s', para):
@@ -419,7 +558,8 @@ def save_docx(
 			p = doc.add_paragraph()
 			p.add_run('\t'.join(options))
 			p.paragraph_format.space_before = Pt(0)
-			p.paragraph_format.space_after = Pt(2)
+			p.paragraph_format.space_after = Pt(0)
+			p.paragraph_format.line_spacing = 1
 			p.paragraph_format.line_spacing_rule = WD_LINE_SPACING.SINGLE
 			logger.info(f'options: {options}')
 
@@ -481,7 +621,18 @@ def save_docx(
 
 		else:
 			p = doc.add_paragraph(para)
-
+			if para.strip() == "THEORY SECTION":
+				is_theory = True
+				p.runs[0].underline = True
+				p.runs[0].bold = True
+				p.paragraph_format.space_before = Pt(0)
+				p.paragraph_format.space_after = Pt(0)
+			elif para.strip() and not is_theory:
+				p.paragraph_format.space_before = Pt(0)
+				p.paragraph_format.space_after = Pt(0)
+			elif para.strip() and is_theory:
+				p.paragraph_format.space_before = Pt(4)
+				p.paragraph_format.space_after = Pt(4)
 		p.style.font.size = Pt(12)
 
 		# Detect options: A. B. C. D.
@@ -554,10 +705,15 @@ def clean_term(term):
 	return f"{term_assignment}-term"
 
 def Randomize(data, multiple=False, db_category=None):
+	# school_account = data.get("school_account", None)
 	try:
+		# if school_account:
+		# 	data = fetch_image(school_account, data)
 		logger.info('db_category:')
 		pretty_print_json(db_category)
-		saved_shuffle_record, gen_new = get_shuffle_record(db_category)
+		saved_shuffle_record, gen_new = None, None
+		if db_category:
+			saved_shuffle_record, gen_new = get_shuffle_record(db_category)
 		logger.info('saved_shuffle_record:')
 		logger.info(saved_shuffle_record)
 		# random_str = ''.join(random.choices(string.ascii_lowercase + string.digits, k=4))
@@ -577,7 +733,7 @@ def Randomize(data, multiple=False, db_category=None):
 		subject_abbr = get_abbr("subject_abbr", subject)
 		term_abbr = get_abbr("term_abbr", generated_term.split("-")[0])
 		_day, _time, _str = unique_time.split("_")
-		exam_id = f"{subject_abbr}_{term_abbr}_{_time}_{_str}"
+		exam_id = f"{subject_abbr}{term_abbr}{_time}{_str}"
 		logger.info(f'Generated Exam ID: {exam_id}')
 		logger.info(f"Generated variant ID: {variant_id}")
 
@@ -672,19 +828,27 @@ def Randomize(data, multiple=False, db_category=None):
 				# logger.info(f"Duration is non-numeric: {duration}")
 				duration_str = duration
 			school_name = data.get("school", None)
+			school_email = data.get("school_email", None)
+			school_address = data.get("school_address", None)
+			# school_email = "chasisdrexogagadafetitebusinessschool@gmail.com"
+			# school_address = "No.12 akintayo bodeja street, idumota, lagos island, ikeja"
 			header_lines = [
 				# data['school'].upper(),
-				f"Subject: {data['subject'].title()}",
-				f"Class: {data['class'].upper()}",
-				f"{data['term'].title()} Term",
-				f"Duration: {duration_str}",
-				f"Instruction: {data['instruction'].title()}",
-				f"variant: {exam_id}",
-				f"Type: {type_code}",
+				f"subject:::Subject: {data['subject'].title()}",
+				f"class:::Class: {data['class'].upper()}",
+				f"term:::{data['term'].title()} Term",
+				f"duration:::Duration: {duration_str}",
+				f"instruction:::Instruction: {data['instruction'].title()}",
+				f"variant:::variant: {exam_id}",
+				f"type:::Type: {type_code}",
 				""
 			]
 			if school_name:
-				header_lines.insert(0, school_name.upper())
+				header_lines.insert(0, f"school:::{school_name.upper()}")
+			if school_email:
+				header_lines.insert(1, f"email:::Email: {school_email}")
+			if school_address:
+				header_lines.insert(2, f"address:::{school_address}")
 			# logger.info(f"Prepared header for type {type_code}")
 			# logger.info(f"Header Lines:")
 			# pretty_print_json(header_lines)
@@ -878,8 +1042,8 @@ def Randomize(data, multiple=False, db_category=None):
 
 				# Add spacing before theory section
 				question_lines.append("")
-				question_lines.append("THEORY")
-				question_lines.append("")
+				question_lines.append("THEORY SECTION")
+				# question_lines.append("")
 
 				question_lines.extend(theory_lines)
 			# logger.info('extracted_full_questions_with_types:')
