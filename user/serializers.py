@@ -28,7 +28,7 @@ class UserSerializer(serializers.ModelSerializer):
 			'gender', 'avatar_code',
 			'contributor', 'points', 'password',
 			'school', 'school_id', 'is_super_admin',
-			'must_change_password',
+			'must_change_password', 'theme_mode',
 		]
 		read_only_fields = [
 			'id',
