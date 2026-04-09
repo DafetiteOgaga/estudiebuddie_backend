@@ -11,7 +11,7 @@ from root_utils.formDataToDict import parse_nested_formdata, print_formdata_cont
 from hooks.pretty_print import pretty_print_json
 from school.models import SubmitedQuestions, ScrambleSession
 from school.serializers import SubmittedQuestionsReadSerializer, SubmittedQuestionsWriteSerializer
-from school.serializers import ScrambleSessionWriteSerializer
+from school.serializers import ScrambleSessionWriteSerializer, SchoolSerializer
 # from ../root_utils.formDataToDict import parse_nested_formdata
 import json, logging
 from django.db import transaction
@@ -21,6 +21,11 @@ from django.http import HttpResponse
 from urllib.parse import quote
 logger = logging.getLogger(__name__)
 
+def remove_files(data):
+    return {
+        k: v for k, v in data.items()
+        if not hasattr(v, "read")  # file objects have .read()
+    }
 def handle_shuffle_record(data):
 	logger.info('checking for existing scramble')
 
@@ -31,6 +36,9 @@ def handle_shuffle_record(data):
 
 	post_payload = data["post_payload"]
 	request = data["request"]
+	has_logo = parsed_data.get("logo", None)
+	has_logo_prev = parsed_data.get("previewLogo", None)
+	# is_school_account = data.get("school_account", None)
 
 	saved_question = ScrambleSession.objects.filter(
 		teacher=user,
@@ -41,6 +49,14 @@ def handle_shuffle_record(data):
 		# "level": parsed_data["level"]
 	).first()
 	logger.info(f'saved_question: {saved_question}')
+	if has_logo:
+		logo = parsed_data.pop("logo")
+	if has_logo_prev:
+		previewLogo = parsed_data.pop("previewLogo")
+	# if is_school_account:
+	# 	school_account = parsed_data.pop("school_account")
+	post_payload = remove_files(post_payload)
+	pretty_print_json(parsed_data)
 	if not saved_question:
 		if post_payload and request:
 			logger.info('creating ScrambleSession')
@@ -88,35 +104,50 @@ def generate_exam_bundle(request):
 	cleanup_old_zips()
 	user = request.user
 	logger.info(f'user: {user}')
-	school = getattr(user, "school", None)
-	# logger.info(f'school: {school}')
+	has_school_account = getattr(user, "school", None)
+	if has_school_account:
+		logger.info(f'school:')
+		pretty_print_json(SchoolSerializer(has_school_account).data)
 	if request.method == 'POST':
 		saved_question = None
 
 		post_payload = request.data
+		payload_has_school = post_payload.get("school", None)
 		parsed_data = parse_nested_formdata(post_payload, request.FILES)
+		if not payload_has_school and has_school_account:
+			parsed_data["school"] = has_school_account.name
+			# parsed_data["school_email"] = getattr(has_school_account, "school_email", None)
+			# parsed_data["school_address"] = getattr(has_school_account, "school_address", None)
+			if has_school_account.school_email:
+				parsed_data["school_email"] = has_school_account.school_email
+			if has_school_account.school_address:
+				parsed_data["school_address"] = has_school_account.school_address
+			# if has_school_account.school_logo_url:
+			# 	parsed_data["school_account"] = has_school_account
 		logger.info(f'parsed_data:')
 		pretty_print_json(parsed_data)
 		# return Response({"success": "Success", "downloadLink": "file_url"}, status=status.HTTP_400_BAD_REQUEST)
 		db_category = {
 			"teacher_id": user.id,
-			"school_id": school.id,
+			# "school_id": has_school_account.id,
 			"session_subject": parsed_data["subject"],
 			"session_term": parsed_data["term"],
 			"session_class": parsed_data["class"],
 		}
+		if has_school_account:
+			db_category["school_id"] = has_school_account.id
 		# file_url, shuffle_record = Randomize(parsed_data, db_category=db_category)
-		zip_buffer, zip_name, shuffle_record = Randomize(parsed_data, db_category=db_category)
+		zip_buffer, zip_name, shuffle_record = Randomize(parsed_data, db_category=db_category if has_school_account else None)
 		logger.info(f"Generated file URL: {zip_name}")
 		logger.info('free usage')
 
 		logger.info(f'user: {user}')
-		logger.info(f'school: {school}')
+		logger.info(f'has_school_account: {has_school_account}')
 		logger.info(f'shuffle_record: {shuffle_record}')
-		if school:
+		if has_school_account:
 			handle_shuffle_record({
 				"user": user,
-				"school": school,
+				"school": has_school_account,
 				"parsed_data": parsed_data,
 				"post_payload": post_payload,
 				"request": request,
