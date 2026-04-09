@@ -33,6 +33,10 @@ class School(models.Model):
 		null=True,
 		blank=True,
 	)
+	school_email = models.EmailField(max_length=200, null=True, blank=True)
+	school_address = models.CharField(max_length=500, null=True, blank=True)
+	school_logo_url = models.URLField(blank=True, null=True)  # only store ImageKit URL
+	school_logo_fileId = models.CharField(max_length=200, null=True, blank=True)  # store ImageKit fileId
 	code = models.CharField(max_length=100, unique=True, db_index=True)
 	created_at = models.DateTimeField(auto_now_add=True)
 	updated_at = models.DateTimeField(auto_now=True)
