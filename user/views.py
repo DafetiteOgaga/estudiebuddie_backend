@@ -311,3 +311,23 @@ def pull_users(request):
 	logger.info(f'users:')
 	pretty_print_json(serialized_users)
 	return Response(serialized_users, status=status.HTTP_200_OK)
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def change_theme(request):
+	cleanup_old_zips()
+	user = request.user
+	logger.info(f'user: {user}')
+	role = user.role
+	logger.info(f'role: {role}')
+	theme_payload = request.data
+	logger.info(f'theme_payload: {theme_payload}')
+	new_theme = theme_payload.get("theme_mode", None)
+	logger.info(f'new_theme: {new_theme}')
+	updated_user = User.objects.filter(id=user.id).first()
+	logger.info(f'updated_user: {updated_user}')
+	if new_theme and updated_user:
+		updated_user.theme_mode = new_theme
+		updated_user.save()
+		return Response({"success": "Success"}, status=status.HTTP_200_OK)
+	return Response({"error": "Theme could not be saved. Try again."}, status=status.HTTP_400_BAD_REQUEST)
