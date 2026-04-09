@@ -43,6 +43,7 @@ class User(AbstractUser):
 	username = models.CharField(max_length=30, null=True, blank=True, unique=False)
 	# password = models.CharField(max_length=128, null=True, blank=True)
 	contributor = models.BooleanField(default=False)
+	theme_mode = models.CharField(max_length=30, default="blue")
 	is_deleted = models.BooleanField(default=False)
 	must_change_password = models.BooleanField(default=False)
 
