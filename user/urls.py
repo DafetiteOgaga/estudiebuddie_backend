@@ -11,4 +11,5 @@ urlpatterns = [
 	# path('check-username/', views.check_username, name='check_username'),
 	path('school-code/<str:code_type>/', views.get_school_code_link, name='get_school_code_link'),
 	path('pull-staffs/', views.pull_users, name='pull_users'),
+	path('change-theme/', views.change_theme, name='change_theme'),
 ]

@@ -7,7 +7,10 @@ logger = logging.getLogger(__name__)
 class SchoolSerializer(serializers.ModelSerializer):
     class Meta:
         model = School
-        fields = ['name', 'acronym']
+        fields = [
+            'name', 'acronym', 'school_email', 'school_address',
+            'school_logo_url', 'school_logo_fileId',
+            ]
 
 class ScrambleSessionWriteSerializer(serializers.ModelSerializer):
     class Meta:
