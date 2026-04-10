@@ -712,7 +712,14 @@ def Randomize(data, multiple=False, db_category=None):
 		logger.info('db_category:')
 		pretty_print_json(db_category)
 		saved_shuffle_record, gen_new = None, None
-		if db_category:
+		questions_data_ = data.get('postQuestions') or data.get('questions') or {}
+		if isinstance(questions_data_, dict):
+			objectives_questions_length = len(list(questions_data_.values()))
+		else:
+			objectives_questions_length = len(questions_data_)
+		logger.info(f'objectives_questions_length: {objectives_questions_length}')
+		if db_category and objectives_questions_length:
+			logger.info('fetching shuffle record')
 			saved_shuffle_record, gen_new = get_shuffle_record(db_category)
 		logger.info('saved_shuffle_record:')
 		logger.info(saved_shuffle_record)
@@ -757,19 +764,20 @@ def Randomize(data, multiple=False, db_category=None):
 		if saved_shuffle_record and not gen_new:
 			saved_questions_length = len(saved_shuffle_record.get("A", {}).get("question_order", []))
 		logger.info(f'saved_questions_length: {saved_questions_length}')
-		# incoming_questions_length = len(data.get('postQuestions', data.get('questions')).values())
-		questions_data_ = data.get('postQuestions') or data.get('questions') or {}
-		# incoming_questions_length = len(questions_data_.values() if isinstance(questions_data_, dict) else questions_data_)
-		if isinstance(questions_data_, dict):
-			incoming_questions_length = len(list(questions_data_.values()))
-		else:
-			incoming_questions_length = len(questions_data_)
-		logger.info(f'incoming_questions_length: {incoming_questions_length}')
-		reshuffle = saved_questions_length != incoming_questions_length
+		# objectives_questions_length = len(data.get('postQuestions', data.get('questions')).values())
+		# questions_data_ = data.get('postQuestions') or data.get('questions') or {}
+		# objectives_questions_length = len(questions_data_.values() if isinstance(questions_data_, dict) else questions_data_)
+		# if isinstance(questions_data_, dict):
+		# 	objectives_questions_length = len(list(questions_data_.values()))
+		# else:
+		# 	objectives_questions_length = len(questions_data_)
+		# logger.info(f'objectives_questions_length: {objectives_questions_length}')
+		reshuffle = saved_questions_length != objectives_questions_length
 		# Generate question and answer files for each type
 		all_shuffle_records = {}
 		shuffle_record = None
 		doc_files = []
+		image_map = None
 		for i, type_code in enumerate(types):
 			logger.info(f"Generating files for question type: {type_code}")
 			# logger.info(f"data: {data}")
@@ -777,26 +785,27 @@ def Randomize(data, multiple=False, db_category=None):
 			# Shuffle questions
 			# questions = shuffle_array(data.get('postQuestions', data.get('questions')))
 			order = None
-			if not reshuffle and saved_shuffle_record and not gen_new:
-				order = saved_shuffle_record.get(type_code, {}).get("question_order")
-			questions, question_order = shuffle_array(
-				data.get('postQuestions', data.get('questions')),
-				return_order=True,
-				order=order
-			)
-			if question_order:
-				shuffle_record = {
-					"question_order": question_order,
-					"option_orders": {}
-				}
-			answer_key = [
-				f"variant: {exam_id}",
-				f"Type: {type_code}",
-				""
-			]
-			logger.info(f"Initialized answer key for type {type_code}")
-			pretty_print_json(answer_key)
-			logger.info(f"Shuffled questions for type {type_code}")
+			if objectives_questions_length:
+				if not reshuffle and saved_shuffle_record and not gen_new:
+					order = saved_shuffle_record.get(type_code, {}).get("question_order")
+				questions, question_order = shuffle_array(
+					data.get('postQuestions', data.get('questions')),
+					return_order=True,
+					order=order
+				)
+				if question_order:
+					shuffle_record = {
+						"question_order": question_order,
+						"option_orders": {}
+					}
+				answer_key = [
+					f"variant: {exam_id}",
+					f"Type: {type_code}",
+					""
+				]
+				logger.info(f"Initialized answer key for type {type_code}")
+				pretty_print_json(answer_key)
+				logger.info(f"Shuffled questions for type {type_code}")
 			# logger.info(f"Shuffled Questions:")
 			# pretty_print_json(questions)
 
@@ -861,173 +870,174 @@ def Randomize(data, multiple=False, db_category=None):
 
 			extracted_full_questions_with_types = None
 
-			# Process each question
-			for idx, q in enumerate(questions):
-				# logger.info(f"Processing question {idx + 1} for type {type_code}")
-				# logger.info(f"Question Data:")
-				# pretty_print_json(q)
-				question_obj = [qo for qo in q if qo]
-				if not question_obj:
-					continue
-				q = question_obj[0]
-				# logger.info('extrated question:')
-				# pretty_print_json(q)
-				# Shuffle options
-				# opts = shuffle_array([
-				# 	{"text": q["correct_answer"], "isCorrect": True},
-				# 	{"text": q["wrong_answer1"], "isCorrect": False},
-				# 	{"text": q["wrong_answer2"], "isCorrect": False},
-				# 	{"text": q["wrong_answer3"], "isCorrect": False},
-				# ])
-				if not reshuffle and saved_shuffle_record and not gen_new:
-					order = saved_shuffle_record.get(type_code, {}).get("option_orders", {}).get(str(idx))
-				opts, option_order = shuffle_array([
-					{"text": q["correct_answer"], "isCorrect": True},
-					{"text": q["wrong_answer1"], "isCorrect": False},
-					{"text": q["wrong_answer2"], "isCorrect": False},
-					{"text": q["wrong_answer3"], "isCorrect": False},
-					], return_order=True,
-					order=order
-				)
-				if option_order:
-					shuffle_record["option_orders"][str(idx)] = option_order
+			if objectives_questions_length:
+				# Process each question
+				for idx, q in enumerate(questions):
+					# logger.info(f"Processing question {idx + 1} for type {type_code}")
+					# logger.info(f"Question Data:")
+					# pretty_print_json(q)
+					question_obj = [qo for qo in q if qo]
+					if not question_obj:
+						continue
+					q = question_obj[0]
+					# logger.info('extrated question:')
+					# pretty_print_json(q)
+					# Shuffle options
+					# opts = shuffle_array([
+					# 	{"text": q["correct_answer"], "isCorrect": True},
+					# 	{"text": q["wrong_answer1"], "isCorrect": False},
+					# 	{"text": q["wrong_answer2"], "isCorrect": False},
+					# 	{"text": q["wrong_answer3"], "isCorrect": False},
+					# ])
+					if not reshuffle and saved_shuffle_record and not gen_new:
+						order = saved_shuffle_record.get(type_code, {}).get("option_orders", {}).get(str(idx))
+					opts, option_order = shuffle_array([
+						{"text": q["correct_answer"], "isCorrect": True},
+						{"text": q["wrong_answer1"], "isCorrect": False},
+						{"text": q["wrong_answer2"], "isCorrect": False},
+						{"text": q["wrong_answer3"], "isCorrect": False},
+						], return_order=True,
+						order=order
+					)
+					if option_order:
+						shuffle_record["option_orders"][str(idx)] = option_order
 
-				# logger.info(f"Shuffled options for question {idx + 1}:")
-				# pretty_print_json(opts)
-				# Label options A, B, C, D
-				for j, opt in enumerate(opts):
-					# logger.info(f"Labeling option {j + 1} for question {idx + 1}")
-					# logger.info(f"Option Data Before Labeling:")
-					# pretty_print_json(opt)
-					opt['label'] = chr(65 + j)
-					# logger.info(f"Option Data After Labeling:")
-					# pretty_print_json(opt)
+					# logger.info(f"Shuffled options for question {idx + 1}:")
+					# pretty_print_json(opts)
+					# Label options A, B, C, D
+					for j, opt in enumerate(opts):
+						# logger.info(f"Labeling option {j + 1} for question {idx + 1}")
+						# logger.info(f"Option Data Before Labeling:")
+						# pretty_print_json(opt)
+						opt['label'] = chr(65 + j)
+						# logger.info(f"Option Data After Labeling:")
+						# pretty_print_json(opt)
 
-				# Find correct option for answer key
-				correct = next(o for o in opts if o["isCorrect"])
-				# logger.info(f"Correct option for question {idx + 1}:")
-				# pretty_print_json(correct)
-				# Append to answer key
-				answer_key.append(f"{idx + 1}. {correct['label']}")
-				# logger.info(f"Updated answer key:")
-				# pretty_print_json(answer_key)
+					# Find correct option for answer key
+					correct = next(o for o in opts if o["isCorrect"])
+					# logger.info(f"Correct option for question {idx + 1}:")
+					# pretty_print_json(correct)
+					# Append to answer key
+					answer_key.append(f"{idx + 1}. {correct['label']}")
+					# logger.info(f"Updated answer key:")
+					# pretty_print_json(answer_key)
 
-				# append image (if it exists)
-				if q.get("image"):
-					question_lines.append(f"__IMAGE__:{idx}")
-				# Append question and options to question lines
-				# logger.info('question:')
-				# pretty_print_json(q)
-				# extracted_question = q["question"][0][0]["value"]
-				extracted_full_questions_with_types = q.get("question", None)
+					# append image (if it exists)
+					if q.get("image"):
+						question_lines.append(f"__IMAGE__:{idx}")
+					# Append question and options to question lines
+					# logger.info('question:')
+					# pretty_print_json(q)
+					# extracted_question = q["question"][0][0]["value"]
+					extracted_full_questions_with_types = q.get("question", None)
 
-				result = {}
-				for items in extracted_full_questions_with_types.values():
-					for item in items:
-						if item and item.get("type") and item.get("value"):
-							result[item["type"]] = item["value"]
+					result = {}
+					for items in extracted_full_questions_with_types.values():
+						for item in items:
+							if item and item.get("type") and item.get("value"):
+								result[item["type"]] = item["value"]
 
-				extracted_full_questions_with_types = result
-				# logger.info('🏆🏆🏆🏆🏆🏆🏆🏆🏆+++++')
-				# logger.info(f'extracted_full_questions_with_types:')
-				# pretty_print_json(extracted_full_questions_with_types)
-				# logger.info('🏆🏆🏆🏆🏆🏆🏆🏆🏆-----')
+					extracted_full_questions_with_types = result
+					# logger.info('🏆🏆🏆🏆🏆🏆🏆🏆🏆+++++')
+					# logger.info(f'extracted_full_questions_with_types:')
+					# pretty_print_json(extracted_full_questions_with_types)
+					# logger.info('🏆🏆🏆🏆🏆🏆🏆🏆🏆-----')
 
-				diagram_line = extracted_full_questions_with_types.get("diagram", None)
-				if diagram_line:
-					logger.info('appending diagram:')
-					question_lines.append(f"__IMAGE__:{idx}")
+					diagram_line = extracted_full_questions_with_types.get("diagram", None)
+					if diagram_line:
+						logger.info('appending diagram:')
+						question_lines.append(f"__IMAGE__:{idx}")
 
-				# appending current question
-				question_lines.append(f"{idx + 1}. {extracted_full_questions_with_types['text']}")
+					# appending current question
+					question_lines.append(f"{idx + 1}. {extracted_full_questions_with_types['text']}")
 
-				math_line = extracted_full_questions_with_types.get("math", None)
-				if math_line:
-					# if math_line.startswith("{") and math_line.endswith("}"):
-					# 	logger.info(f'original math line: {math_line}')
-					# 	math_line = math_line[1:-1]
-					# 	logger.info(f'no_curly: {math_line}')
-					math_line = remove_curly_braces(math_line)
+					math_line = extracted_full_questions_with_types.get("math", None)
+					if math_line:
+						# if math_line.startswith("{") and math_line.endswith("}"):
+						# 	logger.info(f'original math line: {math_line}')
+						# 	math_line = math_line[1:-1]
+						# 	logger.info(f'no_curly: {math_line}')
+						math_line = remove_curly_braces(math_line)
 
-					logger.info(f'adding math line: {math_line}')
-					question_lines.append(f"{''.rjust(2, ' ')} {math_line}")
-				logger.info(f"Added question {idx + 1} to question lines.")
-				# logger.info('🎲🎲🎲🎲🎲🎲🎲')
-				# logger.info(f"Current Question Lines:")
-				# pretty_print_json(question_lines)
-				# logger.info('🥏🥏🥏🥏🥏🥏🥏')
+						logger.info(f'adding math line: {math_line}')
+						question_lines.append(f"{''.rjust(2, ' ')} {math_line}")
+					logger.info(f"Added question {idx + 1} to question lines.")
+					# logger.info('🎲🎲🎲🎲🎲🎲🎲')
+					# logger.info(f"Current Question Lines:")
+					# pretty_print_json(question_lines)
+					# logger.info('🥏🥏🥏🥏🥏🥏🥏')
 
-				# Loop and append options
-				for opt in opts:
-					# logger.info(f"Adding option for question {idx + 1}")
-					# pretty_print_json(opt)
-					# append option label and text
-					question_lines.append(f"{opt['label']}. {opt['text']}")
-					# logger.info(f"Added option`s label to question lines.")
-					# pretty_print_json(opt["label"])
-				# Add a blank line after each question
-				question_lines.append("")
-				logger.info(f"Finished processing question {idx + 1}. Current Question Lines:")
-				# pretty_print_json(question_lines)
+					# Loop and append options
+					for opt in opts:
+						# logger.info(f"Adding option for question {idx + 1}")
+						# pretty_print_json(opt)
+						# append option label and text
+						question_lines.append(f"{opt['label']}. {opt['text']}")
+						# logger.info(f"Added option`s label to question lines.")
+						# pretty_print_json(opt["label"])
+					# Add a blank line after each question
+					question_lines.append("")
+					logger.info(f"Finished processing question {idx + 1}. Current Question Lines:")
+					# pretty_print_json(question_lines)
 
-				# stored shuffle records
-				if shuffle_record:
-					all_shuffle_records[type_code] = shuffle_record
+					# stored shuffle records
+					if shuffle_record:
+						all_shuffle_records[type_code] = shuffle_record
 
-			# Save Question and Answer Files
-			quest_dir = os.path.join(dir_path, 'questions')
-			logger.info(f"Creating directories for type {type_code}")
-			ans_dir = os.path.join(dir_path, 'answers')
-			logger.info(f"Creating answer directories for type {type_code}")
-			# os.makedirs(quest_dir, exist_ok=True)
-			# os.makedirs(ans_dir, exist_ok=True)
-			# question_path_for_docx = os.path.join(quest_dir, f"Question_type_{type_code}.docx")
-			# question_path_for_pdf = os.path.join(quest_dir, f"Exam_type_{type_code}.pdf")
+				# Save Question and Answer Files
+				# quest_dir = os.path.join(dir_path, 'questions')
+				# logger.info(f"Creating directories for type {type_code}")
+				# ans_dir = os.path.join(dir_path, 'answers')
+				# logger.info(f"Creating answer directories for type {type_code}")
+				# os.makedirs(quest_dir, exist_ok=True)
+				# os.makedirs(ans_dir, exist_ok=True)
+				# question_path_for_docx = os.path.join(quest_dir, f"Question_type_{type_code}.docx")
+				# question_path_for_pdf = os.path.join(quest_dir, f"Exam_type_{type_code}.pdf")
 
-			# build image map
-			image_map = {}
-			for i, q in enumerate(questions):
-				# logger.info("q question:")
-				# pretty_print_json(q)
-				question_obj = [qo for qo in q if qo]
-				if not question_obj:
-					continue
-				extracted_question_with_image = question_obj[0]
-				# logger.info('✨✨✨✨✨✨✨✨✨000')
-				
-				img = None
-				if extracted_question_with_image.get("image"):
-					logger.info('♻♻♻♻♻♻♻♻♻♻')
-					img = extracted_question_with_image["image"]
-				else:
-					diagram_info = extracted_question_with_image.get("question", None)
-					if diagram_info:
-						diagram_info = [item for sublist in diagram_info.values() for item in sublist if item]
-						
-						# logger.info('✨✨✨✨✨✨✨✨✨111')
-						# logger.info(f'diagram_info:')
-						# # pretty_print_json(diagram_info)
-						# logger.info('✨✨✨✨✨✨✨✨✨---')
-						dia_keys = set([k["type"] for k in diagram_info])
-						# pretty_print_json(dia_keys)
-						# logger.info('diagram_info22222:')
-						# pretty_print_json(diagram_info)
-						if 'diagram' in dia_keys:
-							diagram_in_q = [d['value'] for d in diagram_info if d['type']=='diagram_png'][0]
-							# logger.info('diagram_in_q:')
-							# pretty_print_json(diagram_in_q)
-							img = base64_to_png_file(diagram_in_q)
-							logger.info('img:')
-							pretty_print_json(img)
-							# if q.get("image"):
-							# question_lines.append(f"__IMAGE__:{idx}")
-					# logger.info('✨✨✨✨✨✨✨✨✨222')
+				# build image map
+				image_map = {}
+				for i, q in enumerate(questions):
+					# logger.info("q question:")
+					# pretty_print_json(q)
+					question_obj = [qo for qo in q if qo]
+					if not question_obj:
+						continue
+					extracted_question_with_image = question_obj[0]
+					# logger.info('✨✨✨✨✨✨✨✨✨000')
+					
+					img = None
+					if extracted_question_with_image.get("image"):
+						logger.info('♻♻♻♻♻♻♻♻♻♻')
+						img = extracted_question_with_image["image"]
+					else:
+						diagram_info = extracted_question_with_image.get("question", None)
+						if diagram_info:
+							diagram_info = [item for sublist in diagram_info.values() for item in sublist if item]
+							
+							# logger.info('✨✨✨✨✨✨✨✨✨111')
+							# logger.info(f'diagram_info:')
+							# # pretty_print_json(diagram_info)
+							# logger.info('✨✨✨✨✨✨✨✨✨---')
+							dia_keys = set([k["type"] for k in diagram_info])
+							# pretty_print_json(dia_keys)
+							# logger.info('diagram_info22222:')
+							# pretty_print_json(diagram_info)
+							if 'diagram' in dia_keys:
+								diagram_in_q = [d['value'] for d in diagram_info if d['type']=='diagram_png'][0]
+								# logger.info('diagram_in_q:')
+								# pretty_print_json(diagram_in_q)
+								img = base64_to_png_file(diagram_in_q)
+								logger.info('img:')
+								pretty_print_json(img)
+								# if q.get("image"):
+								# question_lines.append(f"__IMAGE__:{idx}")
+						# logger.info('✨✨✨✨✨✨✨✨✨222')
 
-				if img:
-					logger.info('🥇🥇🥇🥇🥇🥇🥇🥇🥇🥇🥇')
-					image_map[i] = img
-				# if extracted_question_with_image.get("image"):
-				# 	image_map[i] = extracted_question_with_image["image"]
+					if img:
+						logger.info('🥇🥇🥇🥇🥇🥇🥇🥇🥇🥇🥇')
+						image_map[i] = img
+					# if extracted_question_with_image.get("image"):
+					# 	image_map[i] = extracted_question_with_image["image"]
 
 
 			if theory_questions:
@@ -1041,7 +1051,8 @@ def Randomize(data, multiple=False, db_category=None):
 				theory_lines = build_theory_lines(theory_tree)
 
 				# Add spacing before theory section
-				question_lines.append("")
+				if objectives_questions_length:
+					question_lines.append("")
 				question_lines.append("THEORY SECTION")
 				# question_lines.append("")
 
@@ -1072,10 +1083,11 @@ def Randomize(data, multiple=False, db_category=None):
 			# with open(os.path.join(ans_dir, f"Answers_type_{type_code}.txt"), "w") as f:
 			# 	logger.info(f"Saving answer key text file for type {type_code}")
 			# 	f.write("\n".join(answer_key))
-			answer_buffer = BytesIO()
-			answer_buffer.write("\n".join(answer_key).encode())
-			answer_buffer.seek(0)
-			doc_files.append((f"Answers_type_{type_code}.txt", answer_buffer))
+			if objectives_questions_length:
+				answer_buffer = BytesIO()
+				answer_buffer.write("\n".join(answer_key).encode())
+				answer_buffer.seek(0)
+				doc_files.append((f"Answers_type_{type_code}.txt", answer_buffer))
 
 		logger.info("FULL SHUFFLE RECORD")
 		logger.info(f'doc_files:')
