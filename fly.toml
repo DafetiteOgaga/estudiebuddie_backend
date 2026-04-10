@@ -27,6 +27,3 @@ console_command = '/code/manage.py shell'
 [[statics]]
   guest_path = '/code/static'
   url_prefix = '/static/'
-
-[deploy]
-  release_command = "sh -c 'python manage.py makemigrations && python manage.py migrate && python manage.py collectstatic --noinput'"
