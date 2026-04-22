@@ -191,6 +191,8 @@ AUTH_USER_MODEL = 'user.User'
 CORS_ALLOWED_ORIGINS = [
     "http://127.0.0.1:3000", # React dev server
     "http://localhost:3000",  # React dev server
+    "http://localhost:3001",
+    "http://localhost:3002",
     "https://dafetiteogaga.github.io",  # If deployed
     "https://estudiebuddie-frontend.pages.dev", # cloudflare
 ]
