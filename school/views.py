@@ -288,9 +288,9 @@ def remember_sessions(request, detailed_resp):
 		status_code = status.HTTP_200_OK if is_update else status.HTTP_201_CREATED
 		if post_serializer.is_valid():
 			logger.info('serialized data is valid')
-			post_serializer.save()
+			post_serializer.save(has_submitted=False)
 			logger.info('serialized data saved:')
-			pretty_print_json(post_serializer)
+			# pretty_print_json(post_serializer)
 			response_text = "Progress updated" if is_update else "Progress saved"
 			logger.info(response_text)
 			return Response({"success": response_text},
