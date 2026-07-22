@@ -113,6 +113,8 @@ def generate_exam_bundle(request):
 
 		post_payload = request.data
 		payload_has_school = post_payload.get("school", None)
+		# print(f'inspect request data: {post_payload}')
+		# return Response({"success": "Success", "downloadLink": "file_url"}, status=status.HTTP_400_BAD_REQUEST)
 		parsed_data = parse_nested_formdata(post_payload, request.FILES)
 		if not payload_has_school and has_school_account:
 			parsed_data["school"] = has_school_account.name
