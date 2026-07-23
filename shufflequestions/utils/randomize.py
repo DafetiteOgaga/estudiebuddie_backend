@@ -15,7 +15,6 @@ from django.conf import settings
 from .timestamp import get_timestamp
 # from .check_time import delete_time
 from hooks.pretty_print import pretty_print_json
-from latex2mathml.converter import convert
 from lxml import etree
 from school.models import ScrambleSession
 from io import BytesIO
@@ -139,15 +138,6 @@ def get_abbr(category, value):
 		value
 	)
 
-def remove_curly_braces(math_line):
-	if math_line.startswith("{") and math_line.endswith("}"):
-		logger.info(f'original math line: {math_line}')
-		math_line = math_line[1:-1]
-		logger.info(f'curly removed: {math_line}')
-		return remove_curly_braces(math_line) # recursive
-	logger.info(f'no_curly: {math_line}')
-	return math_line  # base case
-
 def get_shuffle_record(db_category):
 	logger.info('checking ')
 	if db_category:
@@ -176,24 +166,6 @@ def base64_to_png_file(base64_str):
 	# tmp_file.close()
 	# return tmp_file.name
 	return BytesIO(image_bytes)
-
-latex_pattern = r'(\\[a-zA-Z]+.*)'
-def mathml_to_omml(mathml_string):
-	xslt_path = os.path.join(settings.BASE_DIR, "MML2OMML.XSL")
-	# logger.info(f'xslt_path: {xslt_path}')
-	# logger.info(f'path exist: {os.path.exists(xslt_path)}')
-
-	mathml_dom = etree.fromstring(mathml_string.encode())
-
-	# logger.info(f'mathml_dom: {mathml_dom}')
-	xslt = etree.parse(xslt_path)
-	# logger.info(f'xslt: {xslt}')
-	transform = etree.XSLT(xslt)
-	# logger.info(f'transform: {transform}')
-
-	omml_dom = transform(mathml_dom)
-	# logger.info(f'omml_dom: {omml_dom}')
-	return omml_dom.getroot()
 
 def shuffle_array(arr, return_order=False, order=None):
 	if isinstance(arr, dict):
@@ -577,7 +549,7 @@ def save_docx(
 			continue
 
 		if para.startswith("__IMAGE__:"):
-			logger.info(f'__IMAGE__')
+			# logger.info(f'__IMAGE__ found!')
 			q_index = int(para.split(":")[1])
 			image = image_map.get(q_index)
 
@@ -598,41 +570,25 @@ def save_docx(
 
 		# logger.info(f'para: {para}')
 
-		mathml = None
-		match = re.search(latex_pattern, para)
-		if match:
-			latex = match.group(1)
-			normal_text = para.replace(latex, '').strip()
+		# mathml = None
+		# match = re.search(latex_pattern, para)
+		# if match:
+		# else:
+		p = doc.add_paragraph(para)
+		if para.strip() == "THEORY SECTION":
+			is_theory = True
+			p.runs[0].underline = True
+			p.runs[0].bold = True
+			p.paragraph_format.space_before = Pt(0)
+			p.paragraph_format.space_after = Pt(0)
+		elif para.strip() and not is_theory:
+			p.paragraph_format.space_before = Pt(0)
+			p.paragraph_format.space_after = Pt(0)
+		elif para.strip() and is_theory:
+			p.paragraph_format.space_before = Pt(4)
+			p.paragraph_format.space_after = Pt(4)
 
-			# --- TEXT LINE ---
-			if normal_text:
-				p_text = doc.add_paragraph(normal_text)
-				p_text.runs[0].font.size = Pt(12)
 
-			# --- MATH LINE (separate paragraph) ---
-			math_paragraph = doc.add_paragraph()
-
-			mathml = convert(latex)
-			# logger.info(f'mathml: {mathml}')
-			omml = mathml_to_omml(mathml)
-			# logger.info(f'omml: {omml}')
-
-			math_paragraph._p.append(omml)
-
-		else:
-			p = doc.add_paragraph(para)
-			if para.strip() == "THEORY SECTION":
-				is_theory = True
-				p.runs[0].underline = True
-				p.runs[0].bold = True
-				p.paragraph_format.space_before = Pt(0)
-				p.paragraph_format.space_after = Pt(0)
-			elif para.strip() and not is_theory:
-				p.paragraph_format.space_before = Pt(0)
-				p.paragraph_format.space_after = Pt(0)
-			elif para.strip() and is_theory:
-				p.paragraph_format.space_before = Pt(4)
-				p.paragraph_format.space_after = Pt(4)
 		p.style.font.size = Pt(12)
 
 		# Detect options: A. B. C. D.
@@ -951,16 +907,6 @@ def Randomize(data, multiple=False, db_category=None):
 					# appending current question
 					question_lines.append(f"{idx + 1}. {extracted_full_questions_with_types['text']}")
 
-					math_line = extracted_full_questions_with_types.get("math", None)
-					if math_line:
-						# if math_line.startswith("{") and math_line.endswith("}"):
-						# 	logger.info(f'original math line: {math_line}')
-						# 	math_line = math_line[1:-1]
-						# 	logger.info(f'no_curly: {math_line}')
-						math_line = remove_curly_braces(math_line)
-
-						logger.info(f'adding math line: {math_line}')
-						question_lines.append(f"{''.rjust(2, ' ')} {math_line}")
 					logger.info(f"Added question {idx + 1} to question lines.")
 					# logger.info('🎲🎲🎲🎲🎲🎲🎲')
 					# logger.info(f"Current Question Lines:")
@@ -1011,26 +957,38 @@ def Randomize(data, multiple=False, db_category=None):
 						img = extracted_question_with_image["image"]
 					else:
 						diagram_info = extracted_question_with_image.get("question", None)
-						if diagram_info:
-							diagram_info = [item for sublist in diagram_info.values() for item in sublist if item]
-							
-							# logger.info('✨✨✨✨✨✨✨✨✨111')
-							# logger.info(f'diagram_info:')
-							# # pretty_print_json(diagram_info)
-							# logger.info('✨✨✨✨✨✨✨✨✨---')
-							dia_keys = set([k["type"] for k in diagram_info])
-							# pretty_print_json(dia_keys)
-							# logger.info('diagram_info22222:')
-							# pretty_print_json(diagram_info)
-							if 'diagram' in dia_keys:
-								diagram_in_q = [d['value'] for d in diagram_info if d['type']=='diagram_png'][0]
-								# logger.info('diagram_in_q:')
-								# pretty_print_json(diagram_in_q)
-								img = base64_to_png_file(diagram_in_q)
-								logger.info('img:')
-								pretty_print_json(img)
-								# if q.get("image"):
-								# question_lines.append(f"__IMAGE__:{idx}")
+						# print(''.rjust(8,'1'))
+						# pretty_print_json(extracted_question_with_image)
+						diagram_png = extracted_question_with_image.get('diagram_png', None)
+						pretty_print_json(diagram_png)
+						if diagram_info or diagram_png:
+							if diagram_png:
+								
+								# print(''.rjust(8,'2'))
+								# print(type(diagram_png))
+								# print(repr(diagram_png))
+								img = diagram_png
+								# pass
+							else:
+								diagram_info = [item for sublist in diagram_info.values() for item in sublist if item]
+								
+								# logger.info('✨✨✨✨✨✨✨✨✨111')
+								logger.info(f'diagram_info:')
+								# pretty_print_json(diagram_info)
+								# logger.info('✨✨✨✨✨✨✨✨✨---')
+								dia_keys = set([k["type"] for k in diagram_info])
+								pretty_print_json(dia_keys)
+								# logger.info('diagram_info22222:')
+								# pretty_print_json(diagram_info)
+								if 'diagram' in dia_keys:
+									diagram_in_q = [d['value'] for d in diagram_info if d['type']=='diagram_png'][0]
+									# logger.info('diagram_in_q:')
+									# pretty_print_json(diagram_in_q)
+									img = base64_to_png_file(diagram_in_q)
+									logger.info('img:')
+									pretty_print_json(img)
+									# if q.get("image"):
+									# question_lines.append(f"__IMAGE__:{idx}")
 						# logger.info('✨✨✨✨✨✨✨✨✨222')
 
 					if img:
